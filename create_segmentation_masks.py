@@ -169,7 +169,7 @@ def main():
 
     masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
 
-    for image_path in image_paths[:10]:
+    for image_path in image_paths:
         try:
             image_directory = os.path.dirname(image_path).split("/")[-1]
             rle_mask = process_image(image_path, sam_predictor, dino_model, device, text_prompt, box_threshold,
