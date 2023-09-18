@@ -6,11 +6,15 @@ from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
 from segment_anything.utils.amg import remove_small_regions
-
 from utils import coco_utils
 
 
 def setup_logging():
+    """
+    Configure the logging for the application.
+
+    Set up logging to write to 'logs/segmentation.log' and also print to console.
+    """
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
@@ -19,6 +23,23 @@ def setup_logging():
 
 
 def load_sam_model(checkpoint, model_type, device):
+    """
+    Load the SAM model from a checkpoint.
+
+    Parameters
+    ----------
+    checkpoint : str
+        Path to the model checkpoint.
+    model_type : str
+        Type of SAM model to load.
+    device : str
+        Device to load the model on, e.g., 'cuda' or 'cpu'.
+
+    Returns
+    -------
+    SamPredictor
+        An instance of SAM model predictor.
+    """
     logger = logging.getLogger(__name__)
     sam = sam_model_registry[model_type](checkpoint=checkpoint)
     sam.to(device)
@@ -27,6 +48,23 @@ def load_sam_model(checkpoint, model_type, device):
 
 
 def load_dino_model(config_path, checkpoint_path, device):
+    """
+    Load the DINO model from a checkpoint.
+
+    Parameters
+    ----------
+    config_path : str
+        Path to the model configuration.
+    checkpoint_path : str
+        Path to the model checkpoint.
+    device : str
+        Device to load the model on.
+
+    Returns
+    -------
+    groundingdino.models.GroundingDINO.groundingdino.GroundingDINO
+        An instance of the grounding DINO model.
+    """
     logger = logging.getLogger(__name__)
     model = load_model(config_path, checkpoint_path, device)
     logger.info(f"Loaded DINO model from {checkpoint_path}")
@@ -34,15 +72,49 @@ def load_dino_model(config_path, checkpoint_path, device):
 
 
 def get_images_from_dir(image_dir):
+    """
+    Get a list of all image paths from a directory.
+
+    Parameters
+    ----------
+    image_dir : str
+        Directory to search for images.
+
+    Returns
+    -------
+    list
+        A list of image paths.
+    """
     logger = logging.getLogger(__name__)
     image_paths = glob.glob(image_dir + "/*/*.jpg")
     logger.info(f"Found {len(image_paths)} images in {image_dir}")
     return image_paths
 
 
-def predict_bounding_boxes(
-        dino_model, image, device, prompt, box_threshold=0.45, text_threshold=0.25
-):
+def predict_bounding_boxes(dino_model, image, device, prompt, box_threshold=0.45, text_threshold=0.25):
+    """
+    Predict bounding boxes for the given image using the DINO model.
+
+    Parameters
+    ----------
+    dino_model : torch.nn.Module
+        The DINO model instance.
+    image : Tensor
+        Image tensor.
+    device : str
+        Device to perform predictions on.
+    prompt : str
+        Text prompt for predictions.
+    box_threshold : float, optional
+        Confidence threshold for boxes. Defaults to 0.45.
+    text_threshold : float, optional
+        Confidence threshold for text. Defaults to 0.25.
+
+    Returns
+    -------
+    tuple
+        (boxes, logits, phrases) predicted by the model.
+    """
     logger = logging.getLogger(__name__)
     boxes, logits, phrases = predict(
         dino_model, image, prompt, box_threshold, text_threshold, device
@@ -52,6 +124,25 @@ def predict_bounding_boxes(
 
 
 def predict_masks(sam_predictor, image_source, boxes, device):
+    """
+    Predict segmentation masks for the given image using the SAM model.
+
+    Parameters
+    ----------
+    sam_predictor : SamPredictor
+        The SAM model predictor instance.
+    image_source : numpy.ndarray
+        The source image array.
+    boxes : Tensor
+        Bounding boxes tensor.
+    device : str
+        Device to perform predictions on.
+
+    Returns
+    -------
+    numpy.ndarray
+        The predicted mask array.
+    """
     logger = logging.getLogger(__name__)
     sam_predictor.set_image(image_source)
 
@@ -72,8 +163,7 @@ def predict_masks(sam_predictor, image_source, boxes, device):
 
     flattened_mask = masks.sum(dim=1)
     masks = (flattened_mask == True).cpu().numpy()
-    # get first mask since batch size is 1
-    mask = masks[0]
+    mask = masks[0]  # get first mask since batch size is 1
     logger.info(f"Flattened masks to shape {mask.shape}")
 
     mask, _ = remove_small_regions(mask, 100 * 100, "holes")
@@ -84,7 +174,21 @@ def predict_masks(sam_predictor, image_source, boxes, device):
 
 
 def initialize_models(device):
+    """
+    Load and initialize both SAM and DINO models.
+
+    Parameters
+    ----------
+    device : str
+        Device to load the models on.
+
+    Returns
+    -------
+    tuple
+        (sam_predictor, dino_model) initialized models.
+    """
     logger = logging.getLogger(__name__)
+    # Paths are hard-coded for this usecase
     sam_checkpoint = "/scratch/gpfs/eh0560/segment-anything/sam_models/sam_vit_h_4b8939.pth"
     model_type = "vit_h"
     sam_predictor = load_sam_model(sam_checkpoint, model_type, device)
@@ -98,6 +202,31 @@ def initialize_models(device):
 
 
 def process_image(image_path, sam_predictor, dino_model, device, text_prompt, box_threshold, text_threshold):
+    """
+    Process an image to extract segmentation masks.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the image to process.
+    sam_predictor : SamPredictor
+        The SAM model predictor instance.
+    dino_model : torch.nn.Module
+        The DINO model instance.
+    device : str
+        Device to perform predictions on.
+    text_prompt : str
+        Text prompt for bounding box predictions.
+    box_threshold : float
+        Confidence threshold for boxes.
+    text_threshold : float
+        Confidence threshold for text.
+
+    Returns
+    -------
+    dict
+        The Run-Length Encoding (RLE) of the predicted mask.
+    """
     logger = logging.getLogger(__name__)
     image_source, image = load_image(image_path)
     boxes, _, _ = predict_bounding_boxes(dino_model, image, device, text_prompt, box_threshold, text_threshold)
@@ -108,13 +237,19 @@ def process_image(image_path, sam_predictor, dino_model, device, text_prompt, bo
 
 
 def main():
+    """
+    Main execution function to initialize models, load images, and generate masks.
+    """
     setup_logging()
     logger = logging.getLogger(__name__)
     logger.info(f"Starting segmentation")
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device {device}")
+
     sam_predictor, dino_model = initialize_models(device)
 
+    # settings are hard-coded for usecase
     text_prompt = "scanned document"
     box_threshold = 0.45
     text_threshold = 0.25
