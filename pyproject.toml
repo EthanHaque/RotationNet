@@ -1,0 +1,64 @@
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools", "wheel"]
+
+[project]
+name = "SkewNet"
+version = "0.1.0"
+authors = [
+    {name = "Ethan Haque", email = "ethanhaque@princeton.edu"},
+]
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.9.0"
+#dependencies = [
+#    "requests",
+#    "python-dote   nv",
+#]
+
+[project.optional-dependencies]
+development = [
+    "black",
+    "isort",
+    "mypy",
+    "ruff",
+]
+test = [
+    "coverage",
+]
+
+[tool.black]
+line-length = 120
+target-version = ["py39"]
+skip-magic-trailing-comma = true
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.isort]
+profile = "black"
+line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+
+[tool.mypy]
+python_version = 3.9
+strict = true
