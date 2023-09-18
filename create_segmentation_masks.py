@@ -157,6 +157,7 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info(f"Starting segmentation")
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    logger.info(f"Using device {device}")
     sam_predictor, dino_model = initialize_models(device)
 
     text_prompt = "scanned document"
