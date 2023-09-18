@@ -1,22 +1,20 @@
 import glob
-import json
 import os
-import base64
 import logging
 import torch
-import numpy as np
-from pycocotools import mask as coco_mask
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
 from segment_anything.utils.amg import remove_small_regions
+
+from utils import coco_utils
 
 
 def setup_logging():
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler("segmentation.log"), logging.StreamHandler()]
+        handlers=[logging.FileHandler("logs/segmentation.log"), logging.StreamHandler()]
     )
 
 
@@ -85,49 +83,6 @@ def predict_masks(sam_predictor, image_source, boxes, device):
     return mask
 
 
-def convert_mask_to_rle(mask):
-    logger = logging.getLogger(__name__)
-    rle = coco_mask.encode(np.asfortranarray(mask))
-    logger.info(f"Converted mask to RLE")
-    return rle
-
-
-def rle_to_serializable(rle):
-    logger = logging.getLogger(__name__)
-    serializable_rle = rle.copy()
-    # Convert 'counts' from bytes to base64 encoded string for JSON serialization
-    serializable_rle['counts'] = base64.b64encode(rle['counts']).decode('utf-8')
-    logger.info(f"Converted RLE to serializable format")
-    return serializable_rle
-
-
-def serializable_to_rle(serializable_rle):
-    logger = logging.getLogger(__name__)
-    rle = serializable_rle.copy()
-    # Convert 'counts' from base64 encoded string back to bytes
-    rle['counts'] = base64.b64decode(serializable_rle['counts'].encode('utf-8'))
-    logger.info(f"Converted serializable RLE to RLE")
-    return rle
-
-
-def save_mask_as_rle(rle, output_dir, filename):
-    logger = logging.getLogger(__name__)
-    serializable_rle = rle_to_serializable(rle)
-    serialized_json = json.dumps(serializable_rle)
-    output_path = os.path.join(output_dir, filename)
-    with open(output_path, 'w') as f:
-        f.write(serialized_json)
-    logger.info(f"Saved RLE to {output_path}")
-
-
-def load_rle_from_file(filename):
-    logger = logging.getLogger(__name__)
-    with open(filename, 'r') as f:
-        serializable_rle = json.load(f)
-    logger.info(f"Loaded RLE from {filename}")
-    return serializable_to_rle(serializable_rle)
-
-
 def initialize_models(device):
     logger = logging.getLogger(__name__)
     sam_checkpoint = "/scratch/gpfs/eh0560/segment-anything/sam_models/sam_vit_h_4b8939.pth"
@@ -147,7 +102,7 @@ def process_image(image_path, sam_predictor, dino_model, device, text_prompt, bo
     image_source, image = load_image(image_path)
     boxes, _, _ = predict_bounding_boxes(dino_model, image, device, text_prompt, box_threshold, text_threshold)
     mask = predict_masks(sam_predictor, image_source, boxes, device)
-    rle = convert_mask_to_rle(mask)
+    rle = coco_utils.convert_mask_to_rle(mask)
     logger.info(f"Processed image {image_path}")
     return rle
 
@@ -179,12 +134,13 @@ def main():
             output_dir = os.path.join(masks_dir, image_directory)
             os.makedirs(output_dir, exist_ok=True)
             filename = os.path.basename(image_path).replace(".jpg", ".json")
-            save_mask_as_rle(rle_mask, output_dir, filename)
+            coco_utils.save_mask_as_rle(rle_mask, output_dir, filename)
         except Exception as e:
             logger.error(f"Failed to process image {image_path} with error {e}")
             continue
 
     logger.info(f"Finished segmentation")
+
 
 if __name__ == '__main__':
     main()
