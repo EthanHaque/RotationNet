@@ -184,3 +184,6 @@ def main():
             continue
 
     logger.info(f"Finished segmentation")
+
+if __name__ == '__main__':
+    main()
