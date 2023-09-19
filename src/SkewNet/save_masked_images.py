@@ -1,3 +1,4 @@
+import logging
 from utils import coco_utils
 from pycocotools import mask as mask_utils
 import glob
@@ -5,6 +6,17 @@ import os
 import numpy as np
 from PIL import Image
 from multiprocessing import Pool
+
+
+def setup_logging():
+    """
+    Configure the logging for the application.
+    """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler("logs/segmentation.log"), logging.StreamHandler()]
+    )
 
 
 def apply_mask_and_crop(image, mask):
@@ -90,6 +102,8 @@ def save_masked_image(images_root, image_path, mask_path, output_directory):
     output_directory : str
         Directory where the masked image will be saved.
     """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Processing image: {image_path} with mask: {mask_path}")
     relative_path = os.path.relpath(image_path, images_root)
     folder_structure = os.path.dirname(relative_path)
     final_output_directory = os.path.join(output_directory, folder_structure)
@@ -109,6 +123,7 @@ def save_masked_image(images_root, image_path, mask_path, output_directory):
     name_without_extension, _ = os.path.splitext(base_name)
     output_path = os.path.join(final_output_directory, f"{name_without_extension}.png")
     masked_image_pil.save(output_path)
+    logger.info(f"Saved masked image to: {output_path}")
 
 
 def process_image(pair, output_directory, images_root):
@@ -123,6 +138,8 @@ def main():
     """
     Main function to apply masks to a set of images and save the results.
     """
+    setup_logging()
+    logger = logging.getLogger(__name__)
 
     images_root = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images"
     masks_root = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
@@ -132,8 +149,13 @@ def main():
 
     num_processes = os.cpu_count()
 
+    logger.info("Starting mask processing...")
+
     with Pool(num_processes) as pool:
-        pool.map(process_image, pairs, output_directory, images_root)
+        logger.info(f"Using {num_processes} processes to process images.")
+        pool.starmap(process_image, [(pair, output_directory, images_root) for pair in pairs])
+
+    logger.info("Finished processing images.")
 
 
 if __name__ == '__main__':
