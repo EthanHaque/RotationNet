@@ -2,6 +2,7 @@ import glob
 import os
 import logging
 import torch
+import random
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
@@ -88,7 +89,7 @@ def get_images_from_dir(image_dir):
     logger = logging.getLogger(__name__)
     image_paths = glob.glob(image_dir + "/*/*.jpg")
     logger.info(f"Found {len(image_paths)} images in {image_dir}")
-    return image_paths
+    return list(image_paths)
 
 
 def predict_bounding_boxes(dino_model, image, device, prompt, box_threshold=0.45, text_threshold=0.25):
@@ -254,9 +255,10 @@ def main():
     box_threshold = 0.45
     text_threshold = 0.25
 
+    random.seed(42)
     image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images"
     image_paths = get_images_from_dir(image_dir)
-    image_paths.sort()
+    random.shuffle(image_paths)
 
     masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
 
