@@ -1,4 +1,4 @@
-from src.SkewNet.utils import coco_utils
+from utils import coco_utils
 from pycocotools import mask as mask_utils
 import glob
 import os
