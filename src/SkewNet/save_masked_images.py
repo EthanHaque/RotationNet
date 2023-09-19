@@ -89,7 +89,7 @@ def find_image_mask_pairs(images_root, masks_root):
     return pairs
 
 
-def save_masked_image(images_root, image_path, mask_path, output_directory):
+def save_masked_image(image_path, mask_path, output_directory, images_root):
     """
     Apply mask to an image, crop it, and save the result to the specified directory.
 
