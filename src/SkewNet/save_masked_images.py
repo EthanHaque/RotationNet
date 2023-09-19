@@ -149,7 +149,7 @@ def main():
 
     pairs = find_image_mask_pairs(images_root, masks_root)
 
-    num_threads = os.cpu_count()
+    num_threads = 16
 
     logger.info("Starting mask processing...")
 
