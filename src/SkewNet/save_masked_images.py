@@ -4,6 +4,7 @@ import glob
 import os
 import numpy as np
 from PIL import Image
+from multiprocessing import Pool
 
 
 def apply_mask_and_crop(image, mask):
@@ -76,7 +77,7 @@ def find_image_mask_pairs(images_root, masks_root):
     return pairs
 
 
-def save_masked_image(image_path, mask_path, output_directory):
+def save_masked_image(images_root, image_path, mask_path, output_directory):
     """
     Apply mask to an image, crop it, and save the result to the specified directory.
 
@@ -89,7 +90,6 @@ def save_masked_image(image_path, mask_path, output_directory):
     output_directory : str
         Directory where the masked image will be saved.
     """
-
     relative_path = os.path.relpath(image_path, images_root)
     folder_structure = os.path.dirname(relative_path)
     final_output_directory = os.path.join(output_directory, folder_structure)
@@ -111,6 +111,14 @@ def save_masked_image(image_path, mask_path, output_directory):
     masked_image_pil.save(output_path)
 
 
+def process_image(pair, output_directory, images_root):
+    """
+    Helper function to process a single image-mask pair.
+    """
+    image_path, mask_path = pair
+    save_masked_image(image_path, mask_path, output_directory, images_root)
+
+
 def main():
     """
     Main function to apply masks to a set of images and save the results.
@@ -121,8 +129,11 @@ def main():
     output_directory = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images"
 
     pairs = find_image_mask_pairs(images_root, masks_root)
-    for image_path, mask_path in pairs:
-        save_masked_image(image_path, mask_path, output_directory)
+
+    num_processes = os.cpu_count()
+
+    with Pool(num_processes) as pool:
+        pool.map(process_image, pairs, output_directory, images_root)
 
 
 if __name__ == '__main__':
