@@ -101,6 +101,8 @@ def save_masked_image(image_path, mask_path, output_directory, images_root):
         Path to the mask file (in RLE format).
     output_directory : str
         Directory where the masked image will be saved.
+    images_root : str
+        Root directory where image files are stored.
     """
     logger = logging.getLogger(__name__)
     logger.info(f"Processing image: {image_path} with mask: {mask_path}")
