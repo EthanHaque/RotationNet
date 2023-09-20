@@ -26,9 +26,9 @@ def apply_mask_and_crop(image, mask):
     Parameters
     ----------
     image : np.ndarray
-        RGB image of shape (H, W, 3).
+        Image of shape (H, W, C) where C is 1 for grayscale and 3 for RGB.
     mask : np.ndarray
-        Binary mask of shape (H, W) with values in {0, 1}.
+        Binary mask of shape (H, W).
 
     Returns
     -------
@@ -44,10 +44,17 @@ def apply_mask_and_crop(image, mask):
     if image.shape[:2] != mask.shape:
         raise ValueError("Image and mask dimensions do not match")
 
-    h, w, _ = image.shape
-    output = np.zeros((h, w, 4), dtype=np.uint8)  # 4 channels, the last one is alpha
-    output[:, :, :3] = image
-    output[:, :, 3] = mask * 255
+    h, w = image.shape[:2]
+
+    # Check if the image is grayscale or RGB
+    if len(image.shape) == 2 or image.shape[2] == 1:  # Grayscale
+        output = np.zeros((h, w, 2), dtype=np.uint8)  # 2 channels, the last one is alpha
+        output[:, :, 0] = image.squeeze()
+    else:  # RGB
+        output = np.zeros((h, w, 4), dtype=np.uint8)  # 4 channels, the last one is alpha
+        output[:, :, :3] = image
+
+    output[:, :, -1] = mask * 255
 
     rows = np.any(mask, axis=1)
     cols = np.any(mask, axis=0)
