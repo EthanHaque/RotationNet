@@ -3,6 +3,7 @@ import os
 import logging
 import torch
 import random
+import time
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
@@ -241,6 +242,9 @@ def main():
     """
     Main execution function to initialize models, load images, and generate masks.
     """
+    start_time = time.time()
+    max_minutes = 59
+
     setup_logging()
     logger = logging.getLogger(__name__)
     logger.info(f"Starting segmentation")
@@ -263,6 +267,11 @@ def main():
     masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
 
     for image_path in image_paths:
+        elapsed_time = time.time() - start_time
+        if elapsed_time > max_minutes * 60:  # convert to seconds
+            logger.info(f"Reached the maximum allowed time of {max_minutes} minutes. Stopping...")
+            break
+
         # Check if the mask for the current image already exists
         image_directory = os.path.dirname(image_path).split("/")[-1]
         filename = os.path.basename(image_path).replace(".jpg", ".json")
