@@ -139,8 +139,12 @@ def process_image(pair, output_directory, images_root):
     """
     Helper function to process a single image-mask pair.
     """
+    logger = logging.getLogger(__name__)
     image_path, mask_path = pair
-    save_masked_image(image_path, mask_path, output_directory, images_root)
+    try:
+        save_masked_image(image_path, mask_path, output_directory, images_root)
+    except Exception as e:
+        logger.error(f"Failed to process image {image_path} with error {e}")
 
 
 def main():
