@@ -263,14 +263,21 @@ def main():
     masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
 
     for image_path in image_paths:
+        # Check if the mask for the current image already exists
+        image_directory = os.path.dirname(image_path).split("/")[-1]
+        filename = os.path.basename(image_path).replace(".jpg", ".json")
+        mask_path = os.path.join(masks_dir, image_directory, filename)
+
+        if os.path.exists(mask_path):
+            logger.info(f"Mask for image {image_path} already exists. Skipping...")
+            continue
+
         try:
-            image_directory = os.path.dirname(image_path).split("/")[-1]
             rle_mask = process_image(image_path, sam_predictor, dino_model, device, text_prompt, box_threshold,
                                      text_threshold)
 
             output_dir = os.path.join(masks_dir, image_directory)
             os.makedirs(output_dir, exist_ok=True)
-            filename = os.path.basename(image_path).replace(".jpg", ".json")
             coco_utils.save_mask_as_rle(rle_mask, output_dir, filename)
         except Exception as e:
             logger.error(f"Failed to process image {image_path} with error {e}")
