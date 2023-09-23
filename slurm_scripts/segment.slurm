@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job=segment
-#SBATCH --output=segment%j.out
-#SBATCH --error=segment%j.err
+#SBATCH --output=logs/segment%j.out
+#SBATCH --error=logs/segment%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
@@ -15,4 +15,4 @@ module purge
 module load anaconda3/2023.3
 conda activate torch_env
 
-python /scratch/gpfs/eh0560/SkewNet/create_segmentation_masks.py
+python /scratch/gpfs/eh0560/SkewNet/src/SkewNet/create_segmentation_masks.py
