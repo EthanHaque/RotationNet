@@ -73,24 +73,29 @@ def load_dino_model(config_path, checkpoint_path, device):
     return model
 
 
-def get_images_from_dir(image_dir):
+def get_files_from_dir(directory, filetype):
     """
-    Get a list of all image paths from a directory.
+    Get a list of all file paths of the specified filetype from a directory.
 
     Parameters
     ----------
-    image_dir : str
-        Directory to search for images.
+    directory : str
+        Directory to search for files.
+
+    filetype : str
+        The file extension to search for (e.g. ".jpg", ".png", ".txt").
 
     Returns
     -------
     list
-        A list of image paths.
+        A list of file paths.
     """
     logger = logging.getLogger(__name__)
-    image_paths = glob.glob(image_dir + "/*/*.jpg")
-    logger.info(f"Found {len(image_paths)} images in {image_dir}")
-    return list(image_paths)
+    # Ensure filetype string starts with a dot
+    filetype = f".{filetype.lstrip('.')}"
+    file_paths = glob.glob(f"{directory}/*/*{filetype}")
+    logger.info(f"Found {len(file_paths)} {filetype} files in {directory}")
+    return file_paths
 
 
 def predict_bounding_boxes(dino_model, image, device, prompt, box_threshold=0.45, text_threshold=0.25):
@@ -261,30 +266,26 @@ def main():
 
     random.seed(42)
     image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images"
-    image_paths = get_images_from_dir(image_dir)
+    image_paths = get_files_from_dir(image_dir, "jpg")
     random.shuffle(image_paths)
 
     masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
+    processed_images = get_files_from_dir(masks_dir, "json")
 
-    for image_path in image_paths:
+    images_to_process = list(set(image_paths) - set(processed_images))
+
+    for image_path in images_to_process:
         elapsed_time = time.time() - start_time
         if elapsed_time > max_minutes * 60:  # convert to seconds
             logger.info(f"Reached the maximum allowed time of {max_minutes} minutes. Stopping...")
             break
 
-        # Check if the mask for the current image already exists
-        image_directory = os.path.dirname(image_path).split("/")[-1]
-        filename = os.path.basename(image_path).replace(".jpg", ".json")
-        mask_path = os.path.join(masks_dir, image_directory, filename)
-
-        if os.path.exists(mask_path):
-            logger.info(f"Mask for image {image_path} already exists. Skipping...")
-            continue
-
         try:
             rle_mask = process_image(image_path, sam_predictor, dino_model, device, text_prompt, box_threshold,
                                      text_threshold)
 
+            image_directory = os.path.dirname(image_path).split("/")[-1]
+            filename = os.path.basename(image_path).replace(".jpg", ".json")
             output_dir = os.path.join(masks_dir, image_directory)
             os.makedirs(output_dir, exist_ok=True)
             coco_utils.save_mask_as_rle(rle_mask, output_dir, filename)
