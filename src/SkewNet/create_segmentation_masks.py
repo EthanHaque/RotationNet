@@ -95,7 +95,7 @@ def get_files_from_dir(directory, filetype):
     filetype = f".{filetype.lstrip('.')}"
     file_paths = glob.glob(f"{directory}/*/*{filetype}")
     logger.info(f"Found {len(file_paths)} {filetype} files in {directory}")
-    return file_paths
+    return list(file_paths)
 
 
 def predict_bounding_boxes(dino_model, image, device, prompt, box_threshold=0.45, text_threshold=0.25):
