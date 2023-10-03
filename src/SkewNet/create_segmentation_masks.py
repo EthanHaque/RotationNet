@@ -5,6 +5,7 @@ import torch
 import random
 import time
 import datetime
+import numpy as np
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
