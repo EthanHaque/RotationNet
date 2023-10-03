@@ -124,7 +124,7 @@ def save_masked_image(image_path, mask_path, output_directory, images_root):
     base_name = os.path.basename(image_path)
     name_without_extension, _ = os.path.splitext(base_name)
     output_path = os.path.join(final_output_directory, f"{name_without_extension}.png")
-    masked_image_pil.save(output_path)
+    cv2.imwrite(output_path, masked_image)
     logger.info(f"Saved masked image to: {output_path}")
 
 
