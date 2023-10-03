@@ -269,11 +269,11 @@ def main():
     text_threshold = 0.25
 
     random.seed(42)
-    image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images"
+    image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images/images/images_61"
     image_paths = get_files_from_dir(image_dir, "jpg")
     random.shuffle(image_paths)
 
-    masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
+    masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks/images_61"
     processed_images = get_files_from_dir(masks_dir, "json")
 
     images_to_process = list(set(image_paths) - set(processed_images))
