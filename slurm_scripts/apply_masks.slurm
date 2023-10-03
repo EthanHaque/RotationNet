@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job=mask
-#SBATCH --output=logs/mask%j.out
-#SBATCH --error=logs/mask%j.err
+#SBATCH --job=apply_masks
+#SBATCH --output=logs/apply_masks%j.out
+#SBATCH --error=logs/apply_masks%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
