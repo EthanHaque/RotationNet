@@ -174,7 +174,10 @@ def predict_masks(sam_predictor, image_source, boxes, device):
 
     flattened_mask = masks.sum(dim=1)
     masks = (flattened_mask == True).cpu().numpy()
-    mask = masks[0]  # get first mask since batch size is 1
+
+    areas = [np.sum(mask) for mask in masks]
+    largest_mask_idx = np.argmax(areas) if areas else 0
+    mask = masks[largest_mask_idx]
     logger.info(f"Flattened masks to shape {mask.shape}")
 
     mask, _ = remove_small_regions(mask, 100 * 100, "holes")
@@ -269,11 +272,11 @@ def main():
     text_threshold = 0.25
 
     random.seed(42)
-    image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images/images_61"
+    image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images"
     image_paths = get_files_from_dir(image_dir, "jpg")
     random.shuffle(image_paths)
 
-    masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks/images_61"
+    masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
     processed_images = get_files_from_dir(masks_dir, "json")
 
     images_to_process = list(set(image_paths) - set(processed_images))
