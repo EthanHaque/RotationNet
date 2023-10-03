@@ -5,7 +5,8 @@ import glob
 import os
 import numpy as np
 from PIL import Image
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import cpu_count
 
 
 def setup_logging():
@@ -160,12 +161,12 @@ def main():
 
     pairs = find_image_mask_pairs(images_root, masks_root)
 
-    num_threads = 16
+    num_cores = cpu_count()
 
-    logger.info("Starting mask processing...")
+    logger.info(f"Starting mask processing with {num_cores} cores.")
 
-    with ThreadPoolExecutor(max_workers=num_threads) as executor:
-        logger.info(f"Using {num_threads} threads to process images.")
+    with ProcessPoolExecutor(max_workers=num_cores) as executor:
+        logger.info(f"Using {num_cores} threads to process images.")
         list(executor.map(process_image, pairs, [output_directory] * len(pairs), [images_root] * len(pairs)))
 
     logger.info("Finished processing images.")
