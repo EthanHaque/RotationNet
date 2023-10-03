@@ -14,4 +14,4 @@ module purge
 module load anaconda3/2023.3
 conda activate torch_env
 
-python /scratch/gpfs/eh0560/SkewNet/src/SkewNet/save_masked_images.py
+python /scratch/gpfs/eh0560/SkewNet/src/SkewNet/apply_segmentation_masks.py
