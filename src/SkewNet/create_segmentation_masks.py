@@ -97,7 +97,7 @@ def get_files_from_dir(directory, filetype):
     logger = logging.getLogger(__name__)
     # Ensure filetype string starts with a dot
     filetype = f".{filetype.lstrip('.')}"
-    file_paths = glob.glob(f"{directory}/*/*{filetype}")
+    file_paths = glob.glob(f"{directory}/**/*{filetype}", recursive=True)
     logger.info(f"Found {len(file_paths)} {filetype} files in {directory}")
     return list(file_paths)
 
@@ -264,7 +264,7 @@ def main():
     sam_predictor, dino_model = initialize_models(device)
 
     # settings are hard-coded for usecase
-    text_prompt = "scanned document"
+    text_prompt = "scanned old brown document"
     box_threshold = 0.45
     text_threshold = 0.25
 
