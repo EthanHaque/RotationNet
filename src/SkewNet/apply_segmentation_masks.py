@@ -3,6 +3,7 @@ from utils import coco_utils
 from pycocotools import mask as mask_utils
 import glob
 import os
+import datetime
 import numpy as np
 from PIL import Image
 from concurrent.futures import ProcessPoolExecutor
@@ -13,10 +14,13 @@ def setup_logging():
     """
     Configure the logging for the application.
     """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_filename = f"logs/masking_{timestamp}.log"
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler("logs/masking.log"), logging.StreamHandler()]
+        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()]
     )
 
 
