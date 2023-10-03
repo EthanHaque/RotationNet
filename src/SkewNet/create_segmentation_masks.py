@@ -269,7 +269,7 @@ def main():
     text_threshold = 0.25
 
     random.seed(42)
-    image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images/images/images_61"
+    image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images/images_61"
     image_paths = get_files_from_dir(image_dir, "jpg")
     random.shuffle(image_paths)
 
