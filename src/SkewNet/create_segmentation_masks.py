@@ -4,6 +4,7 @@ import logging
 import torch
 import random
 import time
+import datetime
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
@@ -17,10 +18,13 @@ def setup_logging():
 
     Set up logging to write to 'logs/segmentation.log' and also print to console.
     """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_filename = f"logs/segmentation_{timestamp}.log"
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler("logs/segmentation.log"), logging.StreamHandler()]
+        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()]
     )
 
 
