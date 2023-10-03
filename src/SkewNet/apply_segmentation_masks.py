@@ -5,7 +5,7 @@ import glob
 import os
 import datetime
 import numpy as np
-import cv2
+from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -48,7 +48,17 @@ def apply_mask_and_crop(image, mask):
     if image.shape[:2] != mask.shape:
         raise ValueError("Image and mask dimensions do not match")
 
-    output = cv2.bitwise_and(image, image, mask=mask)
+    h, w = image.shape[:2]
+
+    # Check if the image is grayscale or RGB
+    if len(image.shape) == 2 or image.shape[2] == 1:  # Grayscale
+        output = np.zeros((h, w, 2), dtype=np.uint8)  # 2 channels, the last one is alpha
+        output[:, :, 0] = image.squeeze()
+    else:  # RGB
+        output = np.zeros((h, w, 4), dtype=np.uint8)  # 4 channels, the last one is alpha
+        output[:, :, :3] = image
+
+    output[:, :, -1] = mask * 255
 
     rows = np.any(mask, axis=1)
     cols = np.any(mask, axis=0)
@@ -113,18 +123,19 @@ def save_masked_image(image_path, mask_path, output_directory, images_root):
 
     os.makedirs(final_output_directory, exist_ok=True)
 
-    image = cv2.imread(image_path)
+    image = Image.open(image_path)
     image = np.asarray(image)
 
     rle = coco_utils.load_rle_from_file(mask_path)
     mask = mask_utils.decode(rle)
 
     masked_image = apply_mask_and_crop(image, mask)
+    masked_image_pil = Image.fromarray(masked_image)
 
     base_name = os.path.basename(image_path)
     name_without_extension, _ = os.path.splitext(base_name)
     output_path = os.path.join(final_output_directory, f"{name_without_extension}.png")
-    cv2.imwrite(output_path, masked_image)
+    masked_image_pil.save(output_path)
     logger.info(f"Saved masked image to: {output_path}")
 
 
