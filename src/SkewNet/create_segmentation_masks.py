@@ -251,6 +251,23 @@ def process_image(image_path, sam_predictor, dino_model, device, text_prompt, bo
     return rle
 
 
+def get_base_filename(filepath):
+    """
+    Get the base filename without extension from a given file path.
+
+    Parameters
+    ----------
+    filepath : str
+        The file path to extract the base filename from.
+
+    Returns
+    -------
+    str
+        The base filename without extension.
+    """
+    return os.path.splitext(os.path.basename(filepath))[0]
+
+
 def main():
     """
     Main execution function to initialize models, load images, and generate masks.
@@ -280,7 +297,12 @@ def main():
     masks_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/document_masks"
     processed_images = get_files_from_dir(masks_dir, "json")
 
-    images_to_process = list(set(image_paths) - set(processed_images))
+    image_basenames = set(get_base_filename(path) for path in image_paths)
+    processed_basenames = set(get_base_filename(path) for path in processed_images)
+    unprocessed_basenames = image_basenames - processed_basenames
+
+    # Get the paths of the images to be processed
+    images_to_process = [path for path in image_paths if get_base_filename(path) in unprocessed_basenames]
 
     for image_path in images_to_process:
         elapsed_time = time.time() - start_time
@@ -302,7 +324,6 @@ def main():
             continue
 
     logger.info(f"Finished segmentation")
-
 
 if __name__ == '__main__':
     main()
