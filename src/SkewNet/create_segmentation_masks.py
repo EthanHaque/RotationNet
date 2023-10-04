@@ -273,7 +273,7 @@ def main():
     Main execution function to initialize models, load images, and generate masks.
     """
     start_time = time.time()
-    max_minutes = 59
+    max_minutes = 60 * 7 - 1
 
     setup_logging()
     logger = logging.getLogger(__name__)
