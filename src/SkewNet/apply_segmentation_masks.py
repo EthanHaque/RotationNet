@@ -6,7 +6,8 @@ import os
 import datetime
 import numpy as np
 import cv2
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import cpu_count
 
 
 def setup_logging():
@@ -163,12 +164,10 @@ def main():
 
     pairs = find_image_mask_pairs(images_root, masks_root)
 
-    thread_count = 24
+    logger.info(f"Starting mask processing with {cpu_count()} cores.")
 
-    logger.info(f"Starting mask processing with {thread_count} threads.")
-
-    with ThreadPoolExecutor(max_workers=thread_count) as executor:
-        logger.info(f"Using {thread_count} threads to process images.")
+    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+        logger.info(f"Using {cpu_count()} cores to process images.")
         list(executor.map(process_image, pairs, [output_directory] * len(pairs), [images_root] * len(pairs)))
 
     logger.info("Finished processing images.")
