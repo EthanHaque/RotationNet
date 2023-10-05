@@ -5,7 +5,7 @@ import glob
 import os
 import datetime
 import numpy as np
-from PIL import Image
+import cv2
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -123,19 +123,18 @@ def save_masked_image(image_path, mask_path, output_directory, images_root):
 
     os.makedirs(final_output_directory, exist_ok=True)
 
-    image = Image.open(image_path)
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     image = np.asarray(image)
 
     rle = coco_utils.load_rle_from_file(mask_path)
     mask = mask_utils.decode(rle)
 
     masked_image = apply_mask_and_crop(image, mask)
-    masked_image_pil = Image.fromarray(masked_image)
 
     base_name = os.path.basename(image_path)
     name_without_extension, _ = os.path.splitext(base_name)
     output_path = os.path.join(final_output_directory, f"{name_without_extension}.png")
-    masked_image_pil.save(output_path)
+    cv2.imwrite(output_path, masked_image)
     logger.info(f"Saved masked image to: {output_path}")
 
 
