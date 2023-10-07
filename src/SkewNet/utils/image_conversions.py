@@ -71,6 +71,8 @@ if __name__ == "__main__":
     subdirectories = [x for x in images_root.iterdir() if x.is_dir()]
     for subdirectory in subdirectories:
         png_images = get_images(subdirectory)
-        output_dir = Path(images_root) / subdirectory.name
+        output_dir = output_dir / subdirectory.name
+        if not output_dir.exists():
+            output_dir.mkdir(parents=True)
         with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
             list(executor.map(convert_png_to_jpeg, png_images, [output_dir] * len(png_images)))
