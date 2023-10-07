@@ -64,15 +64,19 @@ def get_images(input_folder):
 
 
 if __name__ == "__main__":
-    output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
-    if not output_dir.exists():
-        output_dir.mkdir(parents=True)
+    root_output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
+    if not root_output_dir.exists():
+        root_output_dir.mkdir(parents=True)
+
     images_root = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images")
     subdirectories = [x for x in images_root.iterdir() if x.is_dir()]
+
     for subdirectory in subdirectories:
         png_images = get_images(subdirectory)
-        output_dir = output_dir / subdirectory.name
-        if not output_dir.exists():
-            output_dir.mkdir(parents=True)
+
+        current_output_dir = root_output_dir / subdirectory.name
+        if not current_output_dir.exists():
+            current_output_dir.mkdir(parents=True)
+
         with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
-            list(executor.map(convert_png_to_jpeg, png_images, [output_dir] * len(png_images)))
+            list(executor.map(convert_png_to_jpeg, png_images, [current_output_dir] * len(png_images)))
