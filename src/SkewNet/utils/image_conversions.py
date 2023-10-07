@@ -24,7 +24,6 @@ def convert_png_to_jpeg(png_path, output_directory, new_name=None,
     png = cv2.imread(str(png_path), cv2.IMREAD_UNCHANGED)
 
     if png is None:
-        print(f"Failed to load image: {png_path}")
         return
 
     if png.shape[2] == 4:
