@@ -48,7 +48,7 @@ def convert_png_to_jpeg(png_path, output_directory, new_name=None,
 
 def get_images(input_folder):
     """
-    Get all PNG images in the specified directory and its subdirectories.
+    Get all PNG images in the specified directory.
 
     Parameters
     ----------
@@ -59,12 +59,17 @@ def get_images(input_folder):
     -------
     list of Path
     """
-    return list(input_folder.glob("**/*.png"))
+    return list(input_folder.glob("*.png"))
 
 
 if __name__ == "__main__":
-    png_images = get_images(Path(
-        r"\\wsl.localhost\Ubuntu\home\ethan\rustow\deskewing_datasets\images\cudl_images\segmented_images\images_01"))
-    output_dir = Path(r"C:\Users\ethan_haque\Desktop\tmp\jpg_images")
-    with ProcessPoolExecutor(max_workers=8) as executor:
-        list(executor.map(convert_png_to_jpeg, png_images, [output_dir] * len(png_images)))
+    output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
+    if not output_dir.exists():
+        output_dir.mkdir(parents=True)
+    images_root = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images"
+    subdirectories = [x for x in Path(images_root).iterdir() if x.is_dir()]
+    for subdirectory in subdirectories:
+        png_images = get_images(subdirectory)
+        output_dir = Path(images_root) / subdirectory.name
+        with ProcessPoolExecutor(max_workers=8) as executor:
+            list(executor.map(convert_png_to_jpeg, png_images, [output_dir] * len(png_images)))
