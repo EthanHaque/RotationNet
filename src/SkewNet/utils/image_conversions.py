@@ -87,8 +87,7 @@ if __name__ == "__main__":
     setup_logging()
     logger = logging.getLogger(__name__)
     root_output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
-    if not root_output_dir.exists():
-        root_output_dir.mkdir(parents=True)
+    root_output_dir.mkdir(parents=True, exist_ok=True)
 
     images_root = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images")
     subdirectories = [x for x in images_root.iterdir() if x.is_dir()]
