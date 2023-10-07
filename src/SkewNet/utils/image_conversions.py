@@ -67,8 +67,8 @@ if __name__ == "__main__":
     output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
     if not output_dir.exists():
         output_dir.mkdir(parents=True)
-    images_root = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images"
-    subdirectories = [x for x in Path(images_root).iterdir() if x.is_dir()]
+    images_root = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images")
+    subdirectories = [x for x in images_root.iterdir() if x.is_dir()]
     for subdirectory in subdirectories:
         png_images = get_images(subdirectory)
         output_dir = Path(images_root) / subdirectory.name
