@@ -3,6 +3,22 @@ from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import numpy as np
 from multiprocessing import cpu_count
+import datetime
+import logging
+
+
+def setup_logging():
+    """
+    Configure the logging for the application.
+    """
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_filename = f"logs/jpeg_conversion_{timestamp}.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(message)s",
+        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()]
+    )
 
 
 def convert_png_to_jpeg(png_path, output_directory, new_name=None,
@@ -22,9 +38,11 @@ def convert_png_to_jpeg(png_path, output_directory, new_name=None,
     background_color : tuple, optional
         RGB color to fill the alpha channel, default is white (255, 255, 255).
     """
+    logger = logging.getLogger(__name__)
     png = cv2.imread(str(png_path), cv2.IMREAD_UNCHANGED)
 
     if png is None:
+        logger.error(f"Could not read image {png_path}")
         return
 
     if png.shape[2] == 4:
@@ -43,8 +61,10 @@ def convert_png_to_jpeg(png_path, output_directory, new_name=None,
     else:
         new_name = new_name + ".jpg"
 
+    logger.info(f"Saving {new_name} to {output_directory}")
     jpeg_path = output_directory / new_name
     cv2.imwrite(str(jpeg_path), final_rgb, [cv2.IMWRITE_JPEG_QUALITY, 100])
+    logger.info(f"Saved {new_name} to {output_directory}")
 
 
 def get_images(input_folder):
@@ -64,6 +84,8 @@ def get_images(input_folder):
 
 
 if __name__ == "__main__":
+    setup_logging()
+    logger = logging.getLogger(__name__)
     root_output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
     if not root_output_dir.exists():
         root_output_dir.mkdir(parents=True)
@@ -72,7 +94,9 @@ if __name__ == "__main__":
     subdirectories = [x for x in images_root.iterdir() if x.is_dir()]
 
     for subdirectory in subdirectories:
+        logger.info(f"Processing {subdirectory}")
         png_images = get_images(subdirectory)
+        logger.info(f"Found {len(png_images)} images")
 
         current_output_dir = root_output_dir / subdirectory.name
         if not current_output_dir.exists():
