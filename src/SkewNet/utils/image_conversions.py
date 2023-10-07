@@ -83,6 +83,19 @@ def get_images(input_folder):
     return list(input_folder.glob("*.png"))
 
 
+def process_task(task):
+    """
+    Helper function to process a single image.
+
+    Parameters
+    ----------
+    task : tuple
+        A tuple containing the image path and the output directory.
+    """
+    img, current_output_dir = task
+    convert_png_to_jpeg(img, current_output_dir)
+
+
 if __name__ == "__main__":
     setup_logging()
     logger = logging.getLogger(__name__)
@@ -104,6 +117,6 @@ if __name__ == "__main__":
         tasks.extend((img, current_output_dir) for img in png_images)
 
     with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
-        list(executor.map(lambda x: convert_png_to_jpeg(*x), tasks))
+        list(executor.map(process_task, tasks))
 
     logger.info("Finished converting images")
