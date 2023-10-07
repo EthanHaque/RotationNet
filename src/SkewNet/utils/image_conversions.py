@@ -2,6 +2,7 @@ import cv2
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 import numpy as np
+from multiprocessing import cpu_count
 
 
 def convert_png_to_jpeg(png_path, output_directory, new_name=None,
@@ -71,5 +72,5 @@ if __name__ == "__main__":
     for subdirectory in subdirectories:
         png_images = get_images(subdirectory)
         output_dir = Path(images_root) / subdirectory.name
-        with ProcessPoolExecutor(max_workers=8) as executor:
+        with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
             list(executor.map(convert_png_to_jpeg, png_images, [output_dir] * len(png_images)))
