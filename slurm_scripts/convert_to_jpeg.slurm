@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job=convert_to_jpeg
-#SBATCH --output=logs/convert_to_jpeg%j.out
-#SBATCH --error=logs/convert_to_jpeg%j.err
+#SBATCH --job=convert_to_jpeg.slurm
+#SBATCH --output=logs/convert_to_jpeg.slurm%j.out
+#SBATCH --error=logs/convert_to_jpeg.slurm%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
