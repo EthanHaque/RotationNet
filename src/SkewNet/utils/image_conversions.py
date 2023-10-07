@@ -104,3 +104,5 @@ if __name__ == "__main__":
 
         with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
             list(executor.map(convert_png_to_jpeg, png_images, [current_output_dir] * len(png_images)))
+
+    logger.info("Finished converting images")
