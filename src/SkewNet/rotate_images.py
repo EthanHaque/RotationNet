@@ -119,7 +119,7 @@ def main():
 
     images_root = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images")
 
-    annotations_file_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/annotations.xml")
+    annotations_file_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotation_angles_annotations/images_01_10_test/annotations.xml")
 
     image_angles = get_image_angles(annotations_file_path, parse_cvat_for_images_xml_strategy)
 
