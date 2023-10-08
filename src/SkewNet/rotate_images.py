@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+import cv2
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
 from utils.image_utils import get_files, rotate_image
@@ -98,17 +99,27 @@ def main():
     logger = logging.getLogger(__name__)
     setup_logging("rotate_images", log_dir="logs")
 
-    annotations_file_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images"
-                                 "/rotation_angles_annotations/images_01_10_test/annotations.xml")
-    root_path = Path("/scratch/gpfs/RUSTOW")
+    base_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images")
+    annotations_file_path = base_path / "rotation_angles_annotations/images_01_10_test/annotations.xml"
 
     image_angles = get_image_angles(str(annotations_file_path), parse_cvat_for_images_xml_strategy)
     logger.info(f"Found {len(image_angles)} images")
 
-    for image, angle in image_angles.items():
-        png_path = image.replace("jpeg_images", "rotated_images").replace(".jpg", ".png")
-        png_path = root_path / png_path
-        print(png_path)
+    for image_name, angle in image_angles.items():
+        segmented_image_path = base_path / image_name.replace('jpeg_images', 'segmented_images').replace('.jpg', '.png')
+        rotated_image_output_path = base_path / image_name.replace('jpeg_images', 'rotated_images').replace('.jpg', '.png')
+
+        if not segmented_image_path.exists():
+            logger.error(f"Could not find {segmented_image_path}")
+            continue
+
+        logger.info(f"Rotating {segmented_image_path} by {angle} degrees")
+        print(segmented_image_path)
+        print(rotated_image_output_path)
+        # image = cv2.imread(str(segmented_image_path))
+        # rotated_image = rotate_image(image, angle)
+
+
 
 
 
