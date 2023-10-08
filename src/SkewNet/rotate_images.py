@@ -70,23 +70,6 @@ def calculate_angle(point1, point2):
     return adjusted_degrees
 
 
-def convert_cudl_jpeg_path_to_png_path(jpeg_path):
-    """
-    Convert a CUDL JPEG image path to a CUDL PNG image path.
-
-    Parameters
-    ----------
-    jpeg_path : Path
-        The path to the JPEG image.
-
-    Returns
-    -------
-    Path
-        The path to the PNG image.
-    """
-    return jpeg_path.parent.parent / "segmented_images" / jpeg_path.parent.name / (jpeg_path.stem + ".png")
-
-
 def get_image_angles(annotations_file_path, strategy):
     """
     Get the rotation angles for each image in the annotations file.
@@ -115,16 +98,18 @@ def main():
     logger = logging.getLogger(__name__)
     setup_logging("rotate_images", log_dir="logs")
 
-    root_output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images")
-    root_output_dir.mkdir(parents=True, exist_ok=True)
+    annotations_file_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images"
+                                 "/rotation_angles_annotations/images_01_10_test/annotations.xml")
+    root_path = Path("/scratch/gpfs/RUSTOW")
 
-    images_root = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/segmented_images")
+    image_angles = get_image_angles(str(annotations_file_path), parse_cvat_for_images_xml_strategy)
+    logger.info(f"Found {len(image_angles)} images")
 
-    annotations_file_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotation_angles_annotations/images_01_10_test/annotations.xml")
+    for image, angle in image_angles.items():
+        png_path = image.replace("jpeg_images", "segmented_images").replace(".jpg", ".png")
+        png_path = root_path / png_path
+        print(png_path)
 
-    image_angles = get_image_angles(annotations_file_path, parse_cvat_for_images_xml_strategy)
-
-    print(image_angles)
 
 
 if __name__ == '__main__':
