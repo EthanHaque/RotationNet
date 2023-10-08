@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
-from utils.image_utils import get_images, convert_png_to_jpeg
+from utils.image_utils import get_files, convert_png_to_jpeg
 from utils.logging_utils import setup_logging
 
 
@@ -34,7 +34,7 @@ def main():
     tasks = []
     for subdirectory in subdirectories:
         logger.info(f"Processing {subdirectory}")
-        png_images = get_images(subdirectory)
+        png_images = get_files(subdirectory)
         logger.info(f"Found {len(png_images)} images")
 
         current_output_dir = root_output_dir / subdirectory.name
