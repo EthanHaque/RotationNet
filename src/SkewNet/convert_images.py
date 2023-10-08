@@ -19,7 +19,10 @@ def process_task(task):
     convert_png_to_jpeg(img, current_output_dir)
 
 
-if __name__ == "__main__":
+def main():
+    """
+    Main function to convert all images in the segmented_images directory to JPEG images.
+    """
     setup_logging("convert_images", log_dir="logs")
     logger = logging.getLogger(__name__)
     root_output_dir = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/jpeg_images")
@@ -43,3 +46,7 @@ if __name__ == "__main__":
         list(executor.map(process_task, tasks))
 
     logger.info("Finished converting images")
+
+
+if __name__ == "__main__":
+    main()
