@@ -65,9 +65,12 @@ def get_files(input_folder, extension):
     -------
     list of Path
     """
+    logger = logging.getLogger(__name__)
     if extension[0] != ".":
         extension = "." + extension
-    return list(input_folder.glob(f"*{extension}"))
+    files = list(input_folder.glob(f"*{extension}"))
+    logger.info(f"Found {len(files)} files with extension {extension} in {input_folder}")
+    return files
 
 
 def rotate_image(image, angle):
@@ -86,7 +89,9 @@ def rotate_image(image, angle):
     numpy.ndarray
         The rotated image.
     """
+    logger = logging.getLogger(__name__)
     height, width = image.shape[:2]
     rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
     rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
+    logger.info(f"Rotated image by {angle} degrees")
     return rotated_image
