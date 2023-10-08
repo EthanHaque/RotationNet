@@ -3,25 +3,11 @@ from utils import coco_utils
 from pycocotools import mask as mask_utils
 import glob
 import os
-import datetime
 import numpy as np
 import cv2
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
-
-
-def setup_logging():
-    """
-    Configure the logging for the application.
-    """
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_filename = f"logs/masking_{timestamp}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()]
-    )
+from utils.logging_utils import setup_logging
 
 
 def apply_mask_and_crop(image, mask):
@@ -155,7 +141,7 @@ def main():
     """
     Main function to apply masks to a set of images and save the results.
     """
-    setup_logging()
+    setup_logging("masking", log_dir="logs")
     logger = logging.getLogger(__name__)
 
     images_root = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/images"

@@ -4,29 +4,13 @@ import logging
 import torch
 import random
 import time
-import datetime
 import numpy as np
 from groundingdino.util.inference import load_model, load_image, predict
 from groundingdino.util import box_ops
 from segment_anything import sam_model_registry, SamPredictor
 from segment_anything.utils.amg import remove_small_regions
 from utils import coco_utils
-
-
-def setup_logging():
-    """
-    Configure the logging for the application.
-
-    Set up logging to write to 'logs/segmentation.log' and also print to console.
-    """
-    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-    log_filename = f"logs/segmentation_{timestamp}.log"
-
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(message)s",
-        handlers=[logging.FileHandler(log_filename), logging.StreamHandler()]
-    )
+from utils.logging_utils import setup_logging
 
 
 def load_sam_model(checkpoint, model_type, device):
@@ -275,7 +259,7 @@ def main():
     start_time = time.time()
     max_minutes = 60 * 7 - 1
 
-    setup_logging()
+    setup_logging("segmentation", log_dir="logs")
     logger = logging.getLogger(__name__)
     logger.info(f"Starting segmentation")
 
