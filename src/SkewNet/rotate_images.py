@@ -106,7 +106,7 @@ def main():
     logger.info(f"Found {len(image_angles)} images")
 
     for image, angle in image_angles.items():
-        png_path = image.replace("jpeg_images", "segmented_images").replace(".jpg", ".png")
+        png_path = image.replace("jpeg_images", "rotated_images").replace(".jpg", ".png")
         png_path = root_path / png_path
         print(png_path)
 
