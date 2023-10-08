@@ -48,7 +48,7 @@ def parse_cvat_for_images_xml_strategy(cvat_xml_path):
 
 def calculate_angle(point1, point2):
     """
-    Calculate the angle between two points.
+    Calculate the angle between two points, with 0 degrees being parallel to the negative x-axis.
 
     Parameters
     ----------
@@ -66,7 +66,8 @@ def calculate_angle(point1, point2):
     delta_x = point2[0] - point1[0]
     radians = math.atan2(delta_y, delta_x)
     degrees = math.degrees(radians)
-    return degrees
+    adjusted_degrees = (degrees + 180) % 360
+    return adjusted_degrees
 
 
 def convert_cudl_jpeg_path_to_png_path(jpeg_path):
