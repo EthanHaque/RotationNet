@@ -50,7 +50,7 @@ def convert_png_to_jpeg(png_path, output_directory, new_name=None,
     logger.info(f"Saved {new_name} to {output_directory}")
 
 
-def get_files(input_folder, extension="png"):
+def get_files(input_folder, extension):
     """
     Get all file in the specified directory with the specified extension.
 
@@ -58,8 +58,8 @@ def get_files(input_folder, extension="png"):
     ----------
     input_folder : Path
         The directory to search for PNG images.
-    extension : str, optional
-        The file extension to search for, default is "png".
+    extension : str
+        The file extension to search for.
 
     Returns
     -------

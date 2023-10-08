@@ -34,7 +34,7 @@ def main():
     tasks = []
     for subdirectory in subdirectories:
         logger.info(f"Processing {subdirectory}")
-        png_images = get_files(subdirectory)
+        png_images = get_files(subdirectory, "png")
         logger.info(f"Found {len(png_images)} images")
 
         current_output_dir = root_output_dir / subdirectory.name
