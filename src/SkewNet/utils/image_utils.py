@@ -70,3 +70,23 @@ def get_files(input_folder, extension):
     return list(input_folder.glob(f"*{extension}"))
 
 
+def rotate_image(image, angle):
+    """
+    Rotate an image by the specified angle.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The image to rotate.
+    angle : float
+        The angle to rotate the image by in degrees.
+
+    Returns
+    -------
+    numpy.ndarray
+        The rotated image.
+    """
+    height, width = image.shape[:2]
+    rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
+    return rotated_image
