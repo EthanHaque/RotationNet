@@ -107,6 +107,7 @@ def main():
 
     image_angles = get_image_angles(str(annotations_file_path), parse_cvat_for_images_xml_strategy)
     logger.info(f"Found {len(image_angles)} images")
+    print(image_angles)
 
     # jpeg_images_root = base_path / "jpeg_images"
     #
