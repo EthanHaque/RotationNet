@@ -1,12 +1,13 @@
 import logging
-from pathlib import Path
-import cv2
+import math
+import xml.etree.ElementTree as ET
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
-from utils.image_utils import get_files, rotate_image
+from pathlib import Path
+
+import cv2
+from utils.image_utils import rotate_image
 from utils.logging_utils import setup_logging
-import xml.etree.ElementTree as ET
-import math
 
 
 def parse_cvat_for_images_xml_strategy(cvat_xml_path):

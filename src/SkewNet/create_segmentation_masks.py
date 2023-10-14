@@ -1,13 +1,14 @@
 import glob
-import os
 import logging
-import torch
+import os
 import random
 import time
+
 import numpy as np
-from groundingdino.util.inference import load_model, load_image, predict
+import torch
 from groundingdino.util import box_ops
-from segment_anything import sam_model_registry, SamPredictor
+from groundingdino.util.inference import load_image, load_model, predict
+from segment_anything import SamPredictor, sam_model_registry
 from segment_anything.utils.amg import remove_small_regions
 from utils import coco_utils
 from utils.logging_utils import setup_logging
@@ -158,7 +159,7 @@ def predict_masks(sam_predictor, image_source, boxes, device):
     logger.info(f"Predicted {len(masks)} masks")
 
     flattened_mask = masks.sum(dim=1)
-    masks = (flattened_mask == True).cpu().numpy()
+    masks = (flattened_mask is True).cpu().numpy()
 
     areas = [np.sum(mask) for mask in masks]
     largest_mask_idx = np.argmax(areas) if areas else 0
@@ -167,7 +168,7 @@ def predict_masks(sam_predictor, image_source, boxes, device):
 
     mask, _ = remove_small_regions(mask, 100 * 100, "holes")
     mask, _ = remove_small_regions(mask, 100 * 100, "islands")
-    logger.info(f"Removed small regions from mask")
+    logger.info("Removed small regions from mask")
 
     return mask
 
@@ -196,7 +197,7 @@ def initialize_models(device):
     dino_config_path = "/scratch/gpfs/eh0560/GroundingDINO/groundingdino/config/GroundingDINO_SwinB_cfg.py"
     dino_model = load_dino_model(dino_config_path, dino_model_path, device)
 
-    logger.info(f"Initialized models")
+    logger.info("Initialized models")
     return sam_predictor, dino_model
 
 
@@ -261,7 +262,7 @@ def main():
 
     setup_logging("segmentation", log_dir="logs")
     logger = logging.getLogger(__name__)
-    logger.info(f"Starting segmentation")
+    logger.info("Starting segmentation")
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     logger.info(f"Using device {device}")
@@ -307,7 +308,7 @@ def main():
             logger.error(f"Failed to process image {image_path} with error {e}")
             continue
 
-    logger.info(f"Finished segmentation")
+    logger.info("Finished segmentation")
 
 
 if __name__ == '__main__':

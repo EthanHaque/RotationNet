@@ -1,7 +1,7 @@
-import cv2
-from pathlib import Path
-import numpy as np
 import logging
+
+import cv2
+import numpy as np
 
 
 def convert_png_to_jpeg(png_path, output_directory, new_name=None,

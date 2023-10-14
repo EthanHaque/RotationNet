@@ -1,8 +1,9 @@
 import base64
 import json
 import os
-from pycocotools import mask as coco_mask
+
 import numpy as np
+from pycocotools import mask as coco_mask
 
 
 def convert_mask_to_rle(mask):
