@@ -1,8 +1,9 @@
 import logging
-from pathlib import Path
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
-from utils.image_utils import get_files, convert_png_to_jpeg
+from pathlib import Path
+
+from utils.image_utils import convert_png_to_jpeg, get_files
 from utils.logging_utils import setup_logging
 
 

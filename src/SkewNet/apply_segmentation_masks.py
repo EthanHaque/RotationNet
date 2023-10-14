@@ -1,12 +1,13 @@
-import logging
-from utils import coco_utils
-from pycocotools import mask as mask_utils
 import glob
+import logging
 import os
-import numpy as np
-import cv2
 from concurrent.futures import ProcessPoolExecutor
 from multiprocessing import cpu_count
+
+import cv2
+import numpy as np
+from pycocotools import mask as mask_utils
+from utils import coco_utils
 from utils.logging_utils import setup_logging
 
 
