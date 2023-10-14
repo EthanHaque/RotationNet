@@ -92,6 +92,36 @@ def get_image_angles(annotations_file_path, strategy):
     return strategy(annotations_file_path)
 
 
+def rotate_and_save_image(segmented_image_path, angle, rotated_images_root):
+    """
+    Load, rotate and save the image in parallel.
+
+    Parameters
+    ----------
+    segmented_image_path : Path
+        The path to the segmented image.
+    angle : float
+        The rotation angle.
+    rotated_images_root : Path
+        The path where to save the rotated images.
+    """
+    logger = logging.getLogger(__name__)
+    try:
+        logger.info(f"Rotating {segmented_image_path} by {angle} degrees")
+        image = cv2.imread(str(segmented_image_path), cv2.IMREAD_UNCHANGED)
+        rotated_image = rotate_image(image, angle)
+
+        # Save the rotated image to the rotated_images_root directory.
+        # This is slightly different from the convention images_01, images_02, etc.
+        # Working with a small subset of the images, so this is no longer necessary.
+        output_path = rotated_images_root / segmented_image_path.name
+        cv2.imwrite(str(output_path), rotated_image)
+        logger.info(f"Saved rotated image to {output_path}")
+    except Exception as e:
+        logger.error(f"Error rotating image {segmented_image_path}: {e}")
+        raise e
+
+
 def main():
     """
     Main function to rotate all images in the segmented_images directory.
@@ -101,7 +131,6 @@ def main():
 
     base_path = Path("/scratch/gpfs/RUSTOW/")
     annotations_file_path = base_path / "deskewing_datasets/images/cudl_images/rotation_angles_annotations/images_01_10_test/annotations.xml"
-    segmented_images_root = base_path / "deskewing_datasets/images/cudl_images/segmented_images"
     rotated_images_root = base_path / "deskewing_datasets/images/cudl_images/rotated_images"
     rotated_images_root.mkdir(parents=True, exist_ok=True)
 
@@ -111,14 +140,20 @@ def main():
 
     logger.info(f"Found {len(image_angles)} images")
 
-    for jpeg_image_path, angle in image_angles.items():
-        pass
-    #
-    #     logger.info(f"Rotating {segmented_image_path} by {angle} degrees")
-    #     # image = cv2.imread(str(segmented_image_path))
-    #     # rotated_image = rotate_image(image, angle)
-    #     print(segmented_image_path)
-    #     print(rotated_image_output_path)
+    with ProcessPoolExecutor(max_workers=cpu_count()) as executor:
+        futures = []
+        for jpeg_image_path, angle in image_angles.items():
+            # small hack to get the segmented image path from the jpeg image path
+            segmented_image_path = Path(str(jpeg_image_path).replace("/jpeg_images/", "/segmented_images/")).with_suffix(".png")
+            futures.append(executor.submit(
+                rotate_and_save_image,
+                segmented_image_path,
+                angle,
+                rotated_images_root
+            ))
+
+        for future in futures:
+            future.result() 
 
     logger.info("Finished rotating images")
 

@@ -91,7 +91,21 @@ def rotate_image(image, angle):
     """
     logger = logging.getLogger(__name__)
     height, width = image.shape[:2]
-    rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
-    rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
+
+    # Handle the case for images with alpha channel
+    if image.shape[2] == 4:
+        b, g, r, a = cv2.split(image)
+
+        rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
+        b = cv2.warpAffine(b, rotation_matrix, (width, height))
+        g = cv2.warpAffine(g, rotation_matrix, (width, height))
+        r = cv2.warpAffine(r, rotation_matrix, (width, height))
+        a = cv2.warpAffine(a, rotation_matrix, (width, height))
+
+        rotated_image = cv2.merge((b, g, r, a))
+    else:
+        rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
+        rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
+
     logger.info(f"Rotated image by {angle} degrees")
     return rotated_image
