@@ -108,27 +108,27 @@ def main():
     image_angles = get_image_angles(str(annotations_file_path), parse_cvat_for_images_xml_strategy)
     logger.info(f"Found {len(image_angles)} images")
 
-    jpeg_images_root = base_path / "jpeg_images"
-
-    for image_name, angle in image_angles.items():
-        image_path = jpeg_images_root / image_name
-        relative_path = image_path.relative_to(jpeg_images_root)
-
-        segmented_image_path = segmented_images_root / relative_path.with_suffix('.png')
-        rotated_image_output_path = rotated_images_root / relative_path.with_suffix('.png')
-
-        if not segmented_image_path.exists():
-            logger.error(f"Could not find {segmented_image_path}")
-            continue
-
-        logger.info(f"Rotating {segmented_image_path} by {angle} degrees")
-        # image = cv2.imread(str(segmented_image_path))
-        # rotated_image = rotate_image(image, angle)
-        print(segmented_image_path)
-        print(rotated_image_output_path)
-
-
-    logger.info("Finished rotating images")
+    # jpeg_images_root = base_path / "jpeg_images"
+    #
+    # for image_name, angle in image_angles.items():
+    #     image_path = jpeg_images_root / image_name
+    #     relative_path = image_path.relative_to(jpeg_images_root)
+    #
+    #     segmented_image_path = segmented_images_root / relative_path.with_suffix('.png')
+    #     rotated_image_output_path = rotated_images_root / relative_path.with_suffix('.png')
+    #
+    #     if not segmented_image_path.exists():
+    #         logger.error(f"Could not find {segmented_image_path}")
+    #         continue
+    #
+    #     logger.info(f"Rotating {segmented_image_path} by {angle} degrees")
+    #     # image = cv2.imread(str(segmented_image_path))
+    #     # rotated_image = rotate_image(image, angle)
+    #     print(segmented_image_path)
+    #     print(rotated_image_output_path)
+    #
+    #
+    # logger.info("Finished rotating images")
 
 
 
