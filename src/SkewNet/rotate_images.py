@@ -99,39 +99,28 @@ def main():
     setup_logging("rotate_images", log_dir="logs")
     logger = logging.getLogger(__name__)
 
-    base_path = Path("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images")
-    annotations_file_path = base_path / "rotation_angles_annotations/images_01_10_test/annotations.xml"
-    segmented_images_root = base_path / "segmented_images"
-    rotated_images_root = base_path / "rotated_images"
+    base_path = Path("/scratch/gpfs/RUSTOW/")
+    annotations_file_path = base_path / "deskewing_datasets/images/cudl_images/rotation_angles_annotations/images_01_10_test/annotations.xml"
+    segmented_images_root = base_path / "deskewing_datasets/images/cudl_images/segmented_images"
+    rotated_images_root = base_path / "deskewing_datasets/images/cudl_images/rotated_images"
     rotated_images_root.mkdir(parents=True, exist_ok=True)
 
     image_angles = get_image_angles(str(annotations_file_path), parse_cvat_for_images_xml_strategy)
-    logger.info(f"Found {len(image_angles)} images")
-    print(image_angles)
+    # transforming the image_angles keys into absolute paths
+    image_angles = {base_path / image_path: angle for image_path, angle in image_angles.items()}
 
-    # jpeg_images_root = base_path / "jpeg_images"
-    #
-    # for image_name, angle in image_angles.items():
-    #     image_path = jpeg_images_root / image_name
-    #     relative_path = image_path.relative_to(jpeg_images_root)
-    #
-    #     segmented_image_path = segmented_images_root / relative_path.with_suffix('.png')
-    #     rotated_image_output_path = rotated_images_root / relative_path.with_suffix('.png')
-    #
-    #     if not segmented_image_path.exists():
-    #         logger.error(f"Could not find {segmented_image_path}")
-    #         continue
+    logger.info(f"Found {len(image_angles)} images")
+
+    for jpeg_image_path, angle in image_angles.items():
+        pass
     #
     #     logger.info(f"Rotating {segmented_image_path} by {angle} degrees")
     #     # image = cv2.imread(str(segmented_image_path))
     #     # rotated_image = rotate_image(image, angle)
     #     print(segmented_image_path)
     #     print(rotated_image_output_path)
-    #
-    #
-    # logger.info("Finished rotating images")
 
-
+    logger.info("Finished rotating images")
 
 
 if __name__ == '__main__':
