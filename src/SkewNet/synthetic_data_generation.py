@@ -101,24 +101,6 @@ def collect_files(directory):
     return [os.path.join(directory, f) for f in os.listdir(directory)]
 
 
-
-def test_process_image(i):
-    # Ensuring that the random number generator gives different results for each process
-    np.random.seed(int(time.time()) + i)
-
-    document_image = (
-        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images/MS-ADD-01611-000-00063.png"
-    )
-    background_image = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja/wood-8683.jpg"
-
-    document_image = cv2.imread(document_image, cv2.IMREAD_UNCHANGED)
-    background_image = cv2.imread(background_image, cv2.IMREAD_UNCHANGED)
-
-    output_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
-
-    compose_document_onto_background(document_image, background_image, output_dir)
-
-
 def process_image(image_path, background_path, output_dir, index):
     """
     Composes a document image onto a background image applying a series
