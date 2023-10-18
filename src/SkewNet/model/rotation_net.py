@@ -3,9 +3,9 @@ import torch.nn as nn
 from torchvision.models import mobilenet_v3_large
 
 
-class MyModel(nn.Module):
+class RotationNet(nn.Module):
     def __init__(self):
-        super(MyModel, self).__init__()
+        super(RotationNet, self).__init__()
         self.base_model = mobilenet_v3_large(weights="DEFAULT", width_mult=1.0, reduced_tail=False, dilated=False)
         self.dropout = nn.Dropout(0.2)
         self.fc1 = nn.Linear(1000, 1)
@@ -18,7 +18,7 @@ class MyModel(nn.Module):
 
 
 if __name__ == '__main__':
-    model = MyModel()
+    model = RotationNet()
     print(model)
     in_tensor = torch.randn(1, 3, 224, 224)
     out_tensor = model(in_tensor)
