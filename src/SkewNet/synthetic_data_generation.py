@@ -55,9 +55,9 @@ def compose_document_onto_background(document_image, background_image, output_di
     # Transformations to apply to the document image i.e. children of the background image
     transform_objects = [
         flip.transformers.data_augmentation.RandomResize(
-            mode="symmetric_w",
-            w_min = 0.8 * smallest_dimension,
-            w_max = 1.0 * smallest_dimension,
+            mode="larger",
+            w_min = smallest_dimension * 0.8,
+            w_max = smallest_dimension * 1.0,
             force=True,
         ),
         flip.transformers.data_augmentation.Rotate(mode="random", force=True, crop=False),
