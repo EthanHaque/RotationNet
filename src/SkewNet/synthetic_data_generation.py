@@ -144,6 +144,7 @@ def main():
 
     texture_ninja_background_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja")
     pexels_background_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures")
+    # TODO: add images with solid colors as backgrounds
 
     output_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
 
