@@ -31,15 +31,26 @@ def compose_document_onto_background(document_image, background_image, output_di
     background_element = flip.transformers.Element(
         image=background_image, name="background", objects=[document_element]
     )
+
+    document_angle = np.random.uniform(0.0, 360.0)
+    background_angle = np.random.uniform(0.0, 360.0)
+
+    rotated_document_width, rotated_document_height = flip.utils.rotate_bound(
+        document_image.shape[1], document_image.shape[0], document_angle
+    )
+    rotated_background_width, rotated_background_height = flip.utils.rotate_bound(
+        background_image.shape[1], background_image.shape[0], background_angle
+    )
     
-    largest_document_dimension = max(document_image.shape[0], document_image.shape[1])
-    largest_background_dimension = max(background_image.shape[0], background_image.shape[1])
+    largest_document_dimension = max(rotated_document_width, rotated_document_height)
+    largest_background_dimension = max(rotated_background_width, rotated_background_height)
     smallest_dimension = min(largest_document_dimension, largest_background_dimension)
 
     background_blur_strength = np.random.uniform(0.0, 1.0)
 
+
     transform_backgrounds = [
-        flip.transformers.data_augmentation.Rotate(mode="random", force=False, crop=True),
+        flip.transformers.data_augmentation.Rotate(mode="by_angle", angle=document_angle, force=False, crop=True),
         flip.transformers.data_augmentation.Flip("random", force=False),
         flip.transformers.data_augmentation.RandomResize(
             mode="asymmetric",
@@ -62,7 +73,7 @@ def compose_document_onto_background(document_image, background_image, output_di
             h_max = smallest_dimension * 1.0,
             force=True,
         ),
-        flip.transformers.data_augmentation.Rotate(mode="random", force=True, crop=False),
+        flip.transformers.data_augmentation.Rotate(mode="by_angle", angle=background_angle, force=True, crop=False),
     ]
 
     name = uuid.uuid4()
@@ -78,6 +89,7 @@ def compose_document_onto_background(document_image, background_image, output_di
         ]
     )
 
+    print(smallest_dimension)
     [background_element] = transform(background_element)
 
     return background_element
@@ -135,9 +147,6 @@ def main():
     """
     Main function to test the synthetic data generation.
     """
-    # with Pool(cpu_count()) as p:
-    #     p.map(test_process_image, range(100))
-
     cudl_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images")
     doc_lay_net_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images")
     publaynet_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/publaynet/train")
@@ -163,9 +172,11 @@ def main():
     random_background_images = np.random.choice(background_images, len(document_images))
 
     # multiprocess the image generation
-    with Pool(cpu_count()) as p:
-        p.starmap(process_image, zip(document_images, random_background_images, [output_dir] * len(document_images), range(len(document_images))))
+    # with Pool(cpu_count()) as p:
+    #     p.starmap(process_image, zip(document_images, random_background_images, [output_dir] * len(document_images), range(len(document_images))))
 
+    for i in range(len(document_images)):
+        process_image(document_images[i], random_background_images[i], output_dir, i)
 
 if __name__ == "__main__":
     main()
