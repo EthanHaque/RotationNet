@@ -58,6 +58,8 @@ def compose_document_onto_background(document_image, background_image, output_di
             mode="larger",
             w_min = smallest_dimension * 0.8,
             w_max = smallest_dimension * 1.0,
+            h_min = smallest_dimension * 0.8,
+            h_max = smallest_dimension * 1.0,
             force=True,
         ),
         flip.transformers.data_augmentation.Rotate(mode="random", force=True, crop=False),
