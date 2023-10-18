@@ -29,8 +29,7 @@ def compose_document_onto_background(document_image, background_image, output_di
         image=background_image, name="background", objects=[document_element]
     )
 
-    document_image_width = document_image.shape[1]
-    document_image_height = document_image.shape[0]
+    largest_document_dimension = max(document_image.shape[0], document_image.shape[1])
 
     background_blur_strength = np.random.uniform(0.0, 1.0)
 
@@ -38,11 +37,11 @@ def compose_document_onto_background(document_image, background_image, output_di
         flip.transformers.data_augmentation.Rotate(mode="random", force=False, crop=True),
         flip.transformers.data_augmentation.Flip("random", force=False),
         flip.transformers.data_augmentation.RandomResize(
-            mode="symmetric_w",
-            w_max=document_image_width * 2,
-            h_max=document_image_height * 2,
-            w_min=document_image_width,
-            h_min=document_image_height,
+            mode="asymmetric",
+            w_max=largest_document_dimension * 1.7,
+            h_max=largest_document_dimension * 1.7,
+            w_min=largest_document_dimension,
+            h_min=largest_document_dimension,
             force=True,
         ),
         flip.transformers.data_augmentation.Noise("gaussian_blur", value=background_blur_strength, force=False),
@@ -52,9 +51,8 @@ def compose_document_onto_background(document_image, background_image, output_di
     transform_objects = [
         flip.transformers.data_augmentation.RandomResize(
             mode="symmetric_w",
-            relation="parent",
-            w_percentage_min=0.3,
-            w_percentage_max=1.0,
+            w_min = 0.8 * largest_document_dimension,
+            w_max = 1.0 * largest_document_dimension,
             force=True,
         ),
         flip.transformers.data_augmentation.Rotate(mode="random", force=True, crop=False),
@@ -82,7 +80,7 @@ def main():
     """
     Main function to test the synthetic data generation.
     """
-    for i in range(10):
+    for i in range(100):
         document_image = (
             "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images/MS-ADD-01611-000-00063.png"
         )
