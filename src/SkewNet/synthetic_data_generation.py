@@ -6,6 +6,8 @@ import numpy as np
 import os
 from multiprocessing import Pool, cpu_count
 import time
+from utils import logging_utils
+import logging
 
 
 def compose_document_onto_background(document_image, background_image, output_images_dir, output_annotations_dir):
@@ -24,6 +26,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     output_dir : str
         Output directory where the composed image will be saved.
     """
+    logger = logging.getLogger(__name__)
     document_image = flip.utils.inv_channels(document_image)
     background_image = flip.utils.inv_channels(background_image)
 
@@ -34,6 +37,9 @@ def compose_document_onto_background(document_image, background_image, output_im
 
     document_angle = np.random.uniform(0.0, 360.0)
     background_angle = np.random.uniform(0.0, 360.0)
+    # with probability 1/2 set background angle to 0
+    if np.random.randint(0, 2) == 0:
+        background_angle = 0.0
 
     rotated_document_width, rotated_document_height = flip.utils.get_size_of_rotated_bounding_box(
         document_image.shape[1], document_image.shape[0], document_angle
@@ -53,7 +59,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     background_blur_strength = np.random.uniform(0.0, 1.0)
 
     transform_backgrounds = [
-        flip.transformers.data_augmentation.Rotate(mode="by_angle", angle=document_angle, force=False, crop=True),
+        flip.transformers.data_augmentation.Rotate(mode="by_angle", angle=background_angle, force=True, crop=True),
         flip.transformers.data_augmentation.Flip("random", force=False),
         flip.transformers.data_augmentation.RandomResize(
             mode="asymmetric",
@@ -68,7 +74,7 @@ def compose_document_onto_background(document_image, background_image, output_im
 
     # Transformations to apply to the document image i.e. children of the background image
     transform_objects = [
-        flip.transformers.data_augmentation.Rotate(mode="by_angle", angle=background_angle, force=True, crop=False),
+        flip.transformers.data_augmentation.Rotate(mode="by_angle", angle=document_angle, force=True, crop=False),
         flip.transformers.data_augmentation.RandomResize(
             mode="larger",
             w_min=smallest_dimension * 0.8,
@@ -88,12 +94,16 @@ def compose_document_onto_background(document_image, background_image, output_im
                 x_min=0, y_min=0, x_max=1, y_max=1, mode="percentage"
             ),
             flip.transformers.domain_randomization.Draw(),
+            flip.transformers.labeler.CreateBoundingBoxes(),
+            flip.transformers.labeler.CreateAngles(),
             flip.transformers.io.SaveImage(output_images_dir, name),
             flip.transformers.io.CreateJson(output_annotations_dir, name),
         ]
     )
 
     [background_element] = transform(background_element)
+
+    logger.info(f"Saved image {name} with {len(background_element.objects)} objects")
 
     return background_element
 
@@ -140,8 +150,11 @@ def process_image(image_path, background_path, output_images_dir, output_annotat
     index : int
         Index of the image to be saved.
     """
-    np.random.seed(int(time.time()) + index)
+    logger = logging.getLogger(__name__)
+    logger.info(f"Processing image {index} with path {image_path}")
 
+    np.random.seed(int(time.time()) + index)
+    
     document_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     background_image = cv2.imread(background_path, cv2.IMREAD_UNCHANGED)
 
@@ -152,6 +165,9 @@ def main():
     """
     Main function to test the synthetic data generation.
     """
+    logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO)
+    logger = logging.getLogger(__name__)
+
     cudl_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images")
     doc_lay_net_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images")
     publaynet_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/publaynet/train")
@@ -174,11 +190,12 @@ def main():
     background_images.extend(texture_ninja_background_images)
     background_images.extend(pexels_background_images)
 
+    logger.info(f"Found {len(document_images)} document images")
+    logger.info(f"Found {len(background_images)} background images")
+
     random_background_images = np.random.choice(background_images, len(document_images))
 
-    # multiprocess the image generation
     with Pool(cpu_count()) as p:
-        # p.starmap(process_image, zip(document_images, random_background_images, [output_dir] * len(document_images), range(len(document_images))))
         p.starmap(
             process_image,
             zip(
@@ -192,7 +209,6 @@ def main():
 
     # for i in range(len(document_images)):
     #     process_image(document_images[i], random_background_images[i], output_dir, i)
-
 
 if __name__ == "__main__":
     main()
