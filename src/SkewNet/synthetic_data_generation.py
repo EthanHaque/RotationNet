@@ -156,7 +156,12 @@ def process_image(image_path, background_path, output_images_dir, output_annotat
     np.random.seed(int(time.time()) + index)
     
     document_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    if (document_image.shape[2]) == 3:
+        document_image = cv2.cvtColor(document_image, cv2.COLOR_BGR2BGRA)
+
     background_image = cv2.imread(background_path, cv2.IMREAD_UNCHANGED)
+    if (background_image.shape[2]) == 3:
+        background_image = cv2.cvtColor(background_image, cv2.COLOR_BGR2BGRA)
 
     compose_document_onto_background(document_image, background_image, output_images_dir, output_annotations_dir)
 
