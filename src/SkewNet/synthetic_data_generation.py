@@ -186,10 +186,10 @@ def main():
 
     document_images = []
 
-    for i in range(10):
-        document_images.extend(cudl_document_images)
+    # for i in range(10):
+    #     document_images.extend(cudl_document_images)
     # document_images.extend(doc_lay_net_document_images)
-    # document_images.extend(publaynet_document_images)
+    document_images.extend(publaynet_document_images)
 
     background_images = []
     background_images.extend(texture_ninja_background_images)
