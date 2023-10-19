@@ -10,6 +10,7 @@ class RotationNet(nn.Module):
         self.dropout = nn.Dropout(0.2)
         self.fc1 = nn.Linear(1000, 1)
 
+
     def forward(self, x):
         x = self.base_model(x)
         x = self.dropout(x)
