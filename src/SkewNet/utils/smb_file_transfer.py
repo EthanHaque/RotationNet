@@ -13,6 +13,9 @@ from smbprotocol.open import (
     Open,
     ShareAccess,
 )
+from smbprotocol.file_info import FileInformationClass
+import cv2
+import numpy as np
 
 
 def create_smb_connection(server, port, username, password, share):
@@ -59,13 +62,63 @@ def create_smb_connection(server, port, username, password, share):
         return None, None, None
     
 
+def create_file_index(tree, directory_path):
+    """
+    Recursively traverse the directories and create an index of all the files on the share.
+
+    Parameters
+    ----------
+    tree : smbprotocol.tree.TreeConnect
+        The tree connect instance associated with the SMB share.
+    directory_path : str
+        The path of the directory to start indexing from.
+
+    Returns
+    -------
+    file_index : list of str
+        The list of all files on the share.
+    """
+    file_index = []
+    try:
+        dir_open = Open(tree, directory_path)
+        dir_open.create(
+            ImpersonationLevel.Impersonation,
+            FilePipePrinterAccessMask.GENERIC_READ,
+            0,
+            ShareAccess.FILE_SHARE_READ,
+            CreateDisposition.FILE_OPEN,
+            CreateOptions.FILE_DIRECTORY_FILE
+        )
+
+        info_class = FileInformationClass.FILE_ID_BOTH_DIR_INFORMATION
+        buffer = dir_open.query_directory(info_class)
+        contents = [item['file_name'].get_value().decode('utf-16-le') for item in buffer]
+
+        for item in contents:
+            if item in ['.', '..']:
+                continue  # Skip current and parent directory entries
+            
+            item_path = f"{directory_path}/{item}"
+            if item_path.endswith('/'):  # It's a directory
+                file_index.extend(create_file_index(tree, item_path))
+            else:
+                file_index.append(item_path)
+
+        dir_open.close()
+
+        logging.info(f"Indexed directory {directory_path}.")
+        return file_index
+
+    except Exception as error:
+        logging.error(f"An error occurred while indexing {directory_path}: {str(error)}")
+        return file_index  # Return the index built so far
+
 
 def download_file_to_memory(tree, file_path):
     """
     Download a file from an SMB share to memory.
 
     This function downloads a specified file from an SMB share and stores it in memory. 
-    It uses an established SMB connection, session, and tree to access the file. 
     If the file is successfully downloaded, it returns the file's bytes; otherwise, 
     it handles the exception and returns None.
 
@@ -116,8 +169,49 @@ def download_file_to_memory(tree, file_path):
 
     except Exception as error:
         logging.error(f"An error occurred while downloading {file_path}: {str(error)}")
-        # return None
-        raise error
+        return None
+
+
+def list_directory_contents(tree, directory_path):
+    """
+    List the contents of a directory on an SMB share.
+
+    Parameters
+    ----------
+    tree : smbprotocol.tree.TreeConnect
+        The tree connect instance associated with the SMB share.
+    directory_path : str
+        The path of the directory to list the contents of.
+
+    Returns
+    -------
+    contents : list of str
+        The list of contents of the directory.
+    """
+    try:
+        dir_open = Open(tree, directory_path)
+        dir_open.create(
+            ImpersonationLevel.Impersonation,
+            FilePipePrinterAccessMask.GENERIC_READ,
+            0,
+            ShareAccess.FILE_SHARE_READ,
+            CreateDisposition.FILE_OPEN,
+            CreateOptions.FILE_DIRECTORY_FILE
+        )
+
+        info_class = FileInformationClass.FILE_NAMES_INFORMATION     
+        buffer = dir_open.query_directory("*", info_class)
+        contents = [item['file_name'].get_value().decode('utf-16-le') for item in buffer]
+        contents = [item for item in contents if item not in ['.', '..']]
+
+        dir_open.close()
+
+        logging.info(f"Listed contents of directory {directory_path}.")
+        return contents
+
+    except Exception as error:
+        logging.error(f"An error occurred while listing contents of {directory_path}: {str(error)}")
+        return None
 
 
 def get_credentials(credentials_file):
@@ -177,15 +271,23 @@ def main():
         args.username, args.password = get_credentials(args.credfile)
     
     connection, session, tree = create_smb_connection(args.server, args.port, args.username, args.password, args.share)
-
+    
     if connection and session and tree:
-        content = download_file_to_memory(tree, "text.txt")
-        # print(content.read())
+        # content = download_file_to_memory(tree, r"cairogeniza\Krengel\00003b\Krengel_003b_r.tif")
+        # np_array = np.frombuffer(content.getvalue(), dtype=np.uint8)
+        # image = cv2.imdecode(np_array, cv2.IMREAD_COLOR)
+        # cv2.imwrite("/scratch/gpfs/RUSTOW/tmp.jpg", image)
 
-    tree.disconnect()
-    session.disconnect()
-    connection.disconnect()
+        directory_contents = list_directory_contents(tree, r"cairogeniza\Krengel\00003b")
+        print(directory_contents)
 
+        # index = create_file_index(tree, r"cairogeniza\Krengel\00003b")
+        # print(index)
+
+        # tree.disconnect()
+        # session.disconnect()
+        # connection.disconnect()
+    
 
 if __name__ == "__main__":
     main()
