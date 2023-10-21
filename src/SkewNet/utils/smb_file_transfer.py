@@ -97,8 +97,18 @@ def download_file_to_memory(tree, file_path):
             CreateOptions.FILE_NON_DIRECTORY_FILE
         )
 
-        file_size = file_open.file_attributes['end_of_file']
-        file_bytes = file_open.read(0, file_size)
+        file_bytes = BytesIO()
+
+        offset = 0
+        while offset < file_open.end_of_file:
+            length = file_open.connection.max_read_size
+            data = file_open.read(offset, length)
+            file_bytes.write(data)
+            offset += length
+        
+        # Reset the file pointer to the beginning of the file
+        file_bytes.seek(0)
+
         file_open.close()
 
         logging.info(f"Downloaded file {file_path} to memory.")
@@ -165,11 +175,12 @@ def main():
 
     if args.credfile:
         args.username, args.password = get_credentials(args.credfile)
-
+    
     connection, session, tree = create_smb_connection(args.server, args.port, args.username, args.password, args.share)
 
     if connection and session and tree:
-        download_file_to_memory(tree, "test.txt")
+        content = download_file_to_memory(tree, "text.txt")
+        # print(content.read())
 
     tree.disconnect()
     session.disconnect()
