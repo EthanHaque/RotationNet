@@ -281,22 +281,6 @@ def save_file_index(file_index, destination_path):
         file.write(output)
 
 
-# def convert_and_save_image(file_contents, output_path):
-#     """
-#     Convert the file contents to a JPEG image and save it to the specified path.
-
-#     Parameters
-#     ----------
-#     file_contents : bytes
-#         The contents of the image file.
-#     output_path : str
-#         The path to save the converted image to.
-#     """
-#     array = np.frombuffer(file_contents, dtype=np.uint8)
-#     img = cv2.imdecode(array, cv2.IMREAD_COLOR)
-#     cv2.imwrite(output_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
-
-
 # def main():
 #     parser = setup_cli()
 #     args = parser.parse_args()
