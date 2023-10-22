@@ -1,5 +1,5 @@
 import logging
-
+import os
 import cv2
 import numpy as np
 
@@ -48,6 +48,55 @@ def convert_png_to_jpeg(png_path, output_directory, new_name=None,
     jpeg_path = output_directory / new_name
     cv2.imwrite(str(jpeg_path), final_rgb, [cv2.IMWRITE_JPEG_QUALITY, 100])
     logger.info(f"Saved {new_name} to {output_directory}")
+
+
+def convert_bytes_to_jpeg(file_contents, output_path):
+    """
+    Convert the file contents to a JPEG image and save it to the specified path.
+
+    Parameters
+    ----------
+    file_contents : bytes
+        The contents of the image file.
+    output_path : str
+        The path to save the converted image to.
+    """
+    array = np.frombuffer(file_contents, dtype=np.uint8)
+    img = cv2.imdecode(array, cv2.IMREAD_COLOR)
+    cv2.imwrite(output_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+
+
+def convert_bytes_to_jpeg_and_resize(file_contents, output_path, largest_dimension):
+    """
+    Convert the file contents to a JPEG image, resize it to the specified largest dimension, and save it to the
+    specified path.
+
+    Parameters
+    ----------
+    file_contents : bytes
+        The contents of the image file.
+    output_path : str
+        The path to save the converted image to.
+    largest_dimension : int
+        The largest dimension of the resized image.
+    """
+    if file_contents is None:
+        # temp 
+        print("output_path: ", output_path)
+        raise ValueError("File contents cannot be None")
+    array = np.frombuffer(file_contents, dtype=np.uint8)
+    img = cv2.imdecode(array, cv2.IMREAD_COLOR)
+    height, width = img.shape[:2]
+
+    if height > width:
+        new_height = largest_dimension
+        new_width = int(width * (largest_dimension / height))
+    else:
+        new_width = largest_dimension
+        new_height = int(height * (largest_dimension / width))
+
+    img = cv2.resize(img, (new_width, new_height))
+    cv2.imwrite(output_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
 
 
 def get_files(input_folder, extension):
@@ -109,3 +158,21 @@ def rotate_image(image, angle):
 
     logger.info(f"Rotated image by {angle} degrees")
     return rotated_image
+
+
+def get_file_name_without_extension(file):
+    """
+    Get the name of the file without the extension.
+
+    Parameters
+    ----------
+    file : Path
+        The path to the file.
+
+    Returns
+    -------
+    str
+        The name of the file without the extension.
+    """
+    name, _ = os.path.splitext(os.path.basename(file))
+    return name
