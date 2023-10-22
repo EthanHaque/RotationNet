@@ -264,21 +264,21 @@ def filter_unique_items(items, key_function, priority_function):
     return list(item_dict.values())
 
 
-# def save_file_index(file_index, destination_path):
-#     """
-#     Save the file index to disk.
+def save_file_index(file_index, destination_path):
+    """
+    Save the file index to disk.
 
-#     Parameters
-#     ----------
-#     file_index : list of str
-#         The file index to save.
-#     destination_path : str
-#         The path to save the file index to.
-#     """
-#     file_index.sort()
-#     with open(destination_path, "w", encoding="utf-8") as file:
-#         output = "\n".join(file_index)
-#         file.write(output)
+    Parameters
+    ----------
+    file_index : list of str
+        The file index to save.
+    destination_path : str
+        The path to save the file index to.
+    """
+    file_index.sort()
+    with open(destination_path, "w", encoding="utf-8") as file:
+        output = "\n".join(file_index)
+        file.write(output)
 
 
 # def convert_and_save_image(file_contents, output_path):
