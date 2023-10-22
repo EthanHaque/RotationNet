@@ -1,12 +1,10 @@
 import logging
 import argparse
 from smbclient import register_session, scandir, open_file
-import cv2
-import numpy as np
 import os
 
 
-def get_credentials(credentials_file):
+def _get_credentials(credentials_file):
     """
     Read the username and password from a file.
 
@@ -158,80 +156,65 @@ def exclude_files_starting_with(file_index, character):
     return [f for f in file_index if not os.path.basename(f).startswith(character)]
 
 
-def filter_unique_images(file_index, priority_order):
+def filter_unique_items(items, key_function, priority_function):
     """
-    Keep only one copy of each image, based on a priority order of extensions.
+    Keep only one copy of each item, based on a priority function.
 
     Parameters
     ----------
-    file_index : list of str
-        The list of all image files.
-    priority_order : tuple of str
-        The priority order of extensions.
+    items : list
+        The list of all items.
+    key_function : callable
+        A function that takes an item and returns a key for grouping.
+    priority_function : callable
+        A function that takes an item and returns a value for sorting within groups.
 
     Returns
     -------
-    list of str
-        The filtered list of image files.
+    list
+        The filtered list of items.
     """
-    image_dict = {}
-    for file in sorted(file_index, key=lambda x: priority_order.index(os.path.splitext(x)[-1].lower())):
-        name, _ = os.path.splitext(os.path.basename(file))
-        if name not in image_dict:
-            image_dict[name] = file
+    item_dict = {}
+    for item in sorted(items, key=priority_function):
+        key = key_function(item)
+        if key not in item_dict:
+            item_dict[key] = item
 
-    return list(image_dict.values())
-
-
-
-def save_file_index(file_index, destination_path):
-    """
-    Save the file index to disk.
-
-    Parameters
-    ----------
-    file_index : list of str
-        The file index to save.
-    destination_path : str
-        The path to save the file index to.
-    """
-    file_index.sort()
-    with open(destination_path, "w", encoding="utf-8") as file:
-        output = "\n".join(file_index)
-        file.write(output)
+    return list(item_dict.values())
 
 
-def convert_and_save_image(file_contents, output_path):
-    """
-    Convert the file contents to a JPEG image and save it to the specified path.
 
-    Parameters
-    ----------
-    file_contents : bytes
-        The contents of the image file.
-    output_path : str
-        The path to save the converted image to.
-    """
-    array = np.frombuffer(file_contents, dtype=np.uint8)
-    img = cv2.imdecode(array, cv2.IMREAD_COLOR)
-    cv2.imwrite(output_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
+# def save_file_index(file_index, destination_path):
+#     """
+#     Save the file index to disk.
+
+#     Parameters
+#     ----------
+#     file_index : list of str
+#         The file index to save.
+#     destination_path : str
+#         The path to save the file index to.
+#     """
+#     file_index.sort()
+#     with open(destination_path, "w", encoding="utf-8") as file:
+#         output = "\n".join(file_index)
+#         file.write(output)
 
 
-def process_image_file(file, share_path, output_directory):
-    try:
-        file_contents = download_file_to_memory(share_path, file)
-        
-        # Create the same directory structure in the output directory
-        output_path = os.path.join(output_directory, os.path.splitext(file)[0] + '.jpg')
-        # Replace backslashes with forward slashes for Linux
-        output_path = output_path.replace("\\", "/")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+# def convert_and_save_image(file_contents, output_path):
+#     """
+#     Convert the file contents to a JPEG image and save it to the specified path.
 
-        convert_and_save_image(file_contents, output_path)
-        logging.info(f"Processed {file}")
-
-    except Exception as e:
-        logging.error(f"Error processing file {file}: {e}")
+#     Parameters
+#     ----------
+#     file_contents : bytes
+#         The contents of the image file.
+#     output_path : str
+#         The path to save the converted image to.
+#     """
+#     array = np.frombuffer(file_contents, dtype=np.uint8)
+#     img = cv2.imdecode(array, cv2.IMREAD_COLOR)
+#     cv2.imwrite(output_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
 
 
 def main():
@@ -239,7 +222,7 @@ def main():
     args = parser.parse_args()
 
     if args.credfile:
-        args.username, args.password = get_credentials(args.credfile)
+        args.username, args.password = _get_credentials(args.credfile)
 
     if args.username and args.password:
         register_session(args.server, username=args.username, password=args.password)
@@ -252,31 +235,46 @@ def main():
         # "cairogeniza",
     ]
 
+    def get_file_name_without_extension(file):
+        name, _ = os.path.splitext(os.path.basename(file))
+        return name
+
+    def get_file_extension_priority(file, extensions):
+        extension = os.path.splitext(file)[-1].lower()
+        return extensions.index(extension) if extension in extensions else len(extensions)
+
+
+    image_extensions = ('.tif', '.tiff', '.jpeg', '.jpg', '.png', '.jp2')
+
     file_index = []
     for path in directory_paths_on_share:
         partial_index = create_file_index(share_path, path)
-
-        image_extensions = ('.tif', '.tiff', '.jpeg', '.jpg', '.png', '.jp2')
         partial_index = filter_files_by_extension(partial_index, image_extensions)
         partial_index = exclude_files_starting_with(partial_index, '.')
-        partial_index = filter_unique_images(partial_index, image_extensions)
+
+        partial_index = filter_unique_items(
+            partial_index, 
+            key_function=get_file_name_without_extension, 
+            priority_function=lambda file: get_file_extension_priority(file, image_extensions)
+        )
 
         file_index.extend(partial_index)
 
+    print(len(file_index))
 
     # save images to output directory, converting to jpeg, while keeping the directory structure
-    output_directory = "/scratch/gpfs/RUSTOW/test"
+    # output_directory = "/scratch/gpfs/RUSTOW/test"
 
-    for file in file_index:
-        file_contents = download_file_to_memory(share_path, file)
+    # for file in file_index:
+    #     file_contents = download_file_to_memory(share_path, file)
         
-        # Create the same directory structure in the output directory
-        output_path = os.path.join(output_directory, os.path.splitext(file)[0] + '.jpg')
-        # Replace backslashes with forward slashes for Linux
-        output_path = output_path.replace("\\", "/")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    #     # Create the same directory structure in the output directory
+    #     output_path = os.path.join(output_directory, os.path.splitext(file)[0] + '.jpg')
+    #     # Replace backslashes with forward slashes for Linux
+    #     output_path = output_path.replace("\\", "/")
+    #     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-        convert_and_save_image(file_contents, output_path)
+    #     convert_and_save_image(file_contents, output_path)
 
 
 if __name__ == "__main__":
