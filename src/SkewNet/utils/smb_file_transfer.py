@@ -1,7 +1,5 @@
-import argparse
 import logging
 import os
-
 from smbclient import open_file, register_session, scandir
 
 
@@ -20,6 +18,10 @@ def _get_credentials(credentials_file):
         The username.
     password : str
         The password.
+
+    Examples
+    --------
+    >>> _get_credentials("credentials.txt")
     """
     username = ""
     password = ""
@@ -34,22 +36,63 @@ def _get_credentials(credentials_file):
     return username, password
 
 
-def setup_cli():
-    """Sets up the command line interface for the script.
+def setup_session(server, username="", password="", credentials_file=""):
+    """
+    Register an SMB session.
+
+    Parameters
+    ----------
+    server : str
+        The server name or IP address.
+    username : str, optional
+        The username to access the SMB share.
+    password : str, optional
+        The password to access the SMB share.
+    credentials_file : str, optional
+        File containing username and password.
+    
+    Examples
+    --------
+    >>> setup_session("server1", "user1", "pass1")
+    >>> setup_session("server2", credentials_file="credentials.txt")
+    >>> setup_session("123.123.123.123", username="user3", password="pass3")
+    """
+    if credentials_file:
+        if username or password:
+            logging.warning("Credentials file and username/password specified. Using credentials file.")
+        username, password = _get_credentials(credentials_file)
+
+    if username and password:
+        register_session(server, username=username, password=password)
+    else:
+        register_session(server)
+
+
+def clean_path(path):
+    """
+    Clean a path to be compatible with SMB.
+
+    Parameters
+    ----------
+    path : str
+        The path to clean.
 
     Returns
     -------
-    argparse.ArgumentParser
-        The parser object.
-    """
-    parser = argparse.ArgumentParser(description="Tool for transferring files to and from an SMB share.")
-    parser.add_argument("server", type=str, help="The server name or IP address.")
-    parser.add_argument("share", type=str, help="The name of the SMB share.")
-    parser.add_argument("-A", "--credfile", type=str, help="File containing username and password.")
-    parser.add_argument("-u", "--username", type=str, default="", help="The username to access the SMB share.")
-    parser.add_argument("-p", "--password", type=str, default="", help="The password to access the SMB share.")
+    str
+        The cleaned path.
 
-    return parser
+    Examples
+    --------
+    >>> clean_path("directory1\\directory2\\file1.txt")
+    """
+    if path.startswith("\\") or path.endswith("\\"):
+        path = path.strip("\\")
+    if path.startswith("/") or path.endswith("/"):
+        path = path.strip("/")
+    path = path.replace("/", "\\")
+
+    return path
 
 
 def download_file_to_memory(share_path, file_path):
@@ -67,7 +110,13 @@ def download_file_to_memory(share_path, file_path):
     -------
     bytes
         The file contents.
+
+    Examples
+    --------
+    >>> download_file_to_memory("\\\\server1\\share1", "directory1\\file1.txt")
     """
+    file_path = clean_path(file_path)
+
     with open_file(rf"{share_path}\{file_path}", "rb") as file:
         return file.read()
 
@@ -79,15 +128,44 @@ def download_file_to_disk(share_path, file_path, destination_path):
     Parameters
     ----------
     share_path : str
-        The path to the share.
+        The path to the share. 
     file_path : str
         The path to the file on the share.
     destination_path : str
         The path to save the file to.
+
+    Examples
+    --------
+    >>> download_file_to_disk("\\\\server1\\share1", "directory1\\file1.txt", "C:\\Users\\user1\\file1.txt")
     """
+    file_path = clean_path(file_path)
     with open_file(rf"{share_path}\{file_path}", "rb") as file:
         with open(destination_path, "wb") as destination:
             destination.write(file.read())
+
+
+def list_directory(share_path, directory_path):
+    """
+    List the contents of a directory on an SMB share.
+
+    Parameters
+    ----------
+    share_path : str
+        The path to the share.
+    directory_path : str
+        The path to the directory on the share.
+
+    Returns
+    -------
+    list of str
+        The list of files and directories in the specified directory.
+
+    Examples
+    --------
+    >>> list_directory("\\\\server1\\share1", "directory1")
+    """
+    directory_path = clean_path(directory_path)
+    return [file_info.name for file_info in scandir(rf"{share_path}\{directory_path}")]
 
 
 def create_file_index(share_path, start_directory):
@@ -107,6 +185,8 @@ def create_file_index(share_path, start_directory):
     file_index : list of str
         The list of all files on the share.
     """
+    start_directory = clean_path(start_directory)
+
     file_index = []
     start_path = rf"{share_path}\{start_directory}"
 
@@ -217,49 +297,49 @@ def filter_unique_items(items, key_function, priority_function):
 #     cv2.imwrite(output_path, img, [int(cv2.IMWRITE_JPEG_QUALITY), 90])
 
 
-def main():
-    parser = setup_cli()
-    args = parser.parse_args()
+# def main():
+#     parser = setup_cli()
+#     args = parser.parse_args()
 
-    if args.credfile:
-        args.username, args.password = _get_credentials(args.credfile)
+#     if args.credfile:
+#         args.username, args.password = _get_credentials(args.credfile)
 
-    if args.username and args.password:
-        register_session(args.server, username=args.username, password=args.password)
-    else:
-        register_session(args.server)
+#     if args.username and args.password:
+#         register_session(args.server, username=args.username, password=args.password)
+#     else:
+#         register_session(args.server)
 
-    share_path = rf"\\{args.server}\{args.share}"
-    directory_paths_on_share = [
-        "EVE_DRIVE",
-        # "cairogeniza",
-    ]
+#     share_path = rf"\\{args.server}\{args.share}"
+#     directory_paths_on_share = [
+#         "EVE_DRIVE",
+#         # "cairogeniza",
+#     ]
 
-    def get_file_name_without_extension(file):
-        name, _ = os.path.splitext(os.path.basename(file))
-        return name
+#     def get_file_name_without_extension(file):
+#         name, _ = os.path.splitext(os.path.basename(file))
+#         return name
 
-    def get_file_extension_priority(file, extensions):
-        extension = os.path.splitext(file)[-1].lower()
-        return extensions.index(extension) if extension in extensions else len(extensions)
+#     def get_file_extension_priority(file, extensions):
+#         extension = os.path.splitext(file)[-1].lower()
+#         return extensions.index(extension) if extension in extensions else len(extensions)
 
-    image_extensions = (".tif", ".tiff", ".jpeg", ".jpg", ".png", ".jp2")
+#     image_extensions = (".tif", ".tiff", ".jpeg", ".jpg", ".png", ".jp2")
 
-    file_index = []
-    for path in directory_paths_on_share:
-        partial_index = create_file_index(share_path, path)
-        partial_index = filter_files_by_extension(partial_index, image_extensions)
-        partial_index = exclude_files_starting_with(partial_index, ".")
+#     file_index = []
+#     for path in directory_paths_on_share:
+#         partial_index = create_file_index(share_path, path)
+#         partial_index = filter_files_by_extension(partial_index, image_extensions)
+#         partial_index = exclude_files_starting_with(partial_index, ".")
 
-        partial_index = filter_unique_items(
-            partial_index,
-            key_function=get_file_name_without_extension,
-            priority_function=lambda file: get_file_extension_priority(file, image_extensions),
-        )
+#         partial_index = filter_unique_items(
+#             partial_index,
+#             key_function=get_file_name_without_extension,
+#             priority_function=lambda file: get_file_extension_priority(file, image_extensions),
+#         )
 
-        file_index.extend(partial_index)
+#         file_index.extend(partial_index)
 
-    print(len(file_index))
+#     print(len(file_index))
 
     # save images to output directory, converting to jpeg, while keeping the directory structure
     # output_directory = "/scratch/gpfs/RUSTOW/test"
@@ -276,5 +356,5 @@ def main():
     #     convert_and_save_image(file_contents, output_path)
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
