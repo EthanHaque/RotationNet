@@ -36,7 +36,7 @@ def _get_credentials(credentials_file):
     return username, password
 
 
-def setup_session(server, username="", password="", credentials_file=""):
+def create_connection(server, username="", password="", credentials_file=""):
     """
     Register an SMB session.
 
@@ -53,9 +53,9 @@ def setup_session(server, username="", password="", credentials_file=""):
     
     Examples
     --------
-    >>> setup_session("server1", "user1", "pass1")
-    >>> setup_session("server2", credentials_file="credentials.txt")
-    >>> setup_session("123.123.123.123", username="user3", password="pass3")
+    >>> create_connection("server1", "user1", "pass1")
+    >>> create_connection("server2", credentials_file="credentials.txt")
+    >>> create_connection("123.123.123.123", username="user3", password="pass3")
     """
     if credentials_file:
         if username or password:
