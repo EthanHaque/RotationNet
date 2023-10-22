@@ -192,9 +192,9 @@ def main():
     args = setup_cli().parse_args()
     smb.create_connection(args.server, args.username, args.password, args.credfile)
 
-    output_directory = "/scratch/gpfs/RUSTOW/test"
+    output_directory = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/jts_images/small_images"
     share_path = rf"\\{args.server}\{args.share}"
-    directory_paths_on_share = ["EVE_DRIVE"]
+    directory_paths_on_share = ["EVE_DRIVE", "cairogeniza"]
 
     largest_dimension = 1024
     num_workers = 16
