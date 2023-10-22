@@ -4,7 +4,7 @@ from utils import image_utils
 import multiprocessing
 import os
 import time
-
+import psutil
 
 def setup_cli():
     """Sets up the command line interface for the script.
@@ -24,7 +24,7 @@ def setup_cli():
     return parser
 
 
-def worker(ouput_directory, queue, process_function):
+def worker(ouput_directory, queue, process_function, *args):
     """
     Process the downloaded files.
 
@@ -43,7 +43,7 @@ def worker(ouput_directory, queue, process_function):
             break
         file, file_contents = item
 
-        process_function(file_contents, rf"{ouput_directory}\{file}")
+        process_function(file_contents, rf"{ouput_directory}\{file}", *args)
 
 
 def get_file_extension_priority(file, extensions):
@@ -68,19 +68,22 @@ def get_file_extension_priority(file, extensions):
     return extensions.index(extension) if extension in extensions else len(extensions)
 
 
-def main():
-    """Main function for the script."""
-    parser = setup_cli()
-    args = parser.parse_args()
+def create_image_index(share_path, directory_paths_on_share):
+    """
+    Create an index of all the image files on the share.
 
-    smb.create_connection(args.server, args.username, args.password, args.credfile)
-
-    share_path = rf"\\{args.server}\{args.share}"
-    directory_paths_on_share = [
-        "EVE_DRIVE",
-        # "cairogeniza",
-    ]
-
+    Parameters
+    ----------
+    share_path : str
+        The path to the share.
+    directory_paths_on_share : list of str
+        The paths to the directories on the share.
+    
+    Returns
+    -------
+    list of str
+        The index of all the image files on the share.
+    """
     file_index = []
     for path in directory_paths_on_share:
         partial_index = smb.create_file_index(share_path, path)
@@ -96,48 +99,122 @@ def main():
 
         file_index.extend(partial_index)
 
-    output_directory = "/scratch/gpfs/RUSTOW/test"
+    return file_index
 
-    queue = multiprocessing.Queue()
-    largest_dimension = 1000
 
-    def process_function(file_contents, output_path):
+def process_image(file_contents, output_path, largest_dimension):
+        """
+        Process the downloaded image files.
+        
+        Parameters
+        ----------
+        file_contents : bytes
+            The contents of the file.
+        output_path : str
+            The path to save the file to.
+        largest_dimension : int
+            The largest dimension of the image.
+        """
         output_path = output_path.replace("\\", "/")
         output_path = os.path.join(os.path.dirname(output_path), os.path.basename(output_path).split(".")[0] + ".jpg")
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
         image_utils.convert_bytes_to_jpeg_and_resize(file_contents, str(output_path), largest_dimension)
 
-    # Creating separate processes for processing the downloaded files
-    num_workers = 2
+
+def download_files(file_index, share_path, queue):
+    """
+    Download the files from the share.
+
+    Parameters
+    ----------
+    file_index : list of str
+        The index of the files to download.
+    share_path : str
+        The path to the share.
+    queue : multiprocessing.Queue
+        The queue to put the downloaded files in.
+
+    Returns
+    -------
+    int
+        The total size of the downloaded files.
+    """
+    total_size_downloaded = 0
+    start_time = time.time()
+
+    for i, file in enumerate(file_index):
+        file_contents = smb.download_file_to_memory(share_path, file)
+        total_size_downloaded += len(file_contents)
+        queue.put((file, file_contents))
+
+        elapsed_time = time.time() - start_time
+        print_download_info(i, elapsed_time, total_size_downloaded, file_index)
+
+    return total_size_downloaded
+
+
+def print_download_info(i, elapsed_time, total_size_downloaded, file_index):
+    """
+    Print the download information.
+
+    Parameters
+    ----------
+    i : int
+        The index of the current file.
+    elapsed_time : float
+        The elapsed time since the start of the download.
+    total_size_downloaded : int
+        The total size of the downloaded files.
+    file_index : list of str
+        The index of the files to download.
+    
+    Returns
+    -------
+    int
+        The total size of the downloaded files.
+    """
+    if elapsed_time > 0:  # Avoid division by zero
+        download_speed = total_size_downloaded / elapsed_time / (1024 * 1024)  # MB per second
+        info_string = (
+            f"Speed: {download_speed:.2f} MB/s, "
+            f"Downloaded: {total_size_downloaded / (1024 * 1024):.2f} MB, "
+            f"Time: {elapsed_time:.2f} s, "
+            f"Memory: {psutil.virtual_memory().percent}%, "
+            f"CPU: {psutil.cpu_percent()}%, "
+            f"Files: {i + 1}/{len(file_index)}"
+        )
+        print(info_string, end="\r")
+
+
+def main():
+    args = setup_cli().parse_args()
+
+    smb.create_connection(args.server, args.username, args.password, args.credfile)
+
+    output_directory = "/scratch/gpfs/RUSTOW/test"
+    share_path = rf"\\{args.server}\{args.share}"
+    directory_paths_on_share = ["EVE_DRIVE"]
+
+    file_index = create_image_index(share_path, directory_paths_on_share)
+
+    queue = multiprocessing.Queue()
+    largest_dimension = 1000
+
+    num_workers = 16
     workers = [
-        multiprocessing.Process(target=worker, args=(output_directory, queue, process_function))
+        multiprocessing.Process(target=worker, args=(output_directory, queue, process_image, largest_dimension))
         for _ in range(num_workers)
     ]
+
     for w in workers:
         w.start()
 
+    download_files(file_index, share_path, queue)
 
-    total_size_downloaded = 0  # Total size of downloaded files in bytes
-    start_time = time.time()  # Start time of downloading
-    for file in file_index:
-        file_contents = smb.download_file_to_memory(share_path, file)
-        file_size = len(file_contents)
-        total_size_downloaded += file_size
-        queue.put((file, file_contents))
-
-        # Calculate and print metrics
-        current_time = time.time()
-        elapsed_time = current_time - start_time
-        if elapsed_time > 0:  # Avoid division by zero
-            download_speed = total_size_downloaded / elapsed_time / (1024 * 1024)  # MB per second
-            print(f"Current download speed: {download_speed:.2f} MB/s, Total size downloaded: {total_size_downloaded / (1024 * 1024):.2f} MB, Queue size: {queue.qsize()}", end="\r")
-
-
-    # Adding a sentinel value to the queue for each worker to signal that there are no more files to process
+    # Signal workers that no more files to process
     for _ in range(num_workers):
         queue.put(None)
 
-    # Wait for all worker processes to complete
     for w in workers:
         w.join()
 
