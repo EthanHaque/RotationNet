@@ -1,10 +1,12 @@
 import argparse
-from utils import smb_file_transfer as smb
-from utils import image_utils
 import multiprocessing
 import os
 import time
+
 import psutil
+from utils import image_utils
+from utils import smb_file_transfer as smb
+
 
 def setup_cli():
     """Sets up the command line interface for the script.
@@ -78,7 +80,7 @@ def create_image_index(share_path, directory_paths_on_share):
         The path to the share.
     directory_paths_on_share : list of str
         The paths to the directories on the share.
-    
+
     Returns
     -------
     list of str
@@ -103,22 +105,22 @@ def create_image_index(share_path, directory_paths_on_share):
 
 
 def process_image(file_contents, output_path, largest_dimension):
-        """
-        Process the downloaded image files.
-        
-        Parameters
-        ----------
-        file_contents : bytes
-            The contents of the file.
-        output_path : str
-            The path to save the file to.
-        largest_dimension : int
-            The largest dimension of the image.
-        """
-        output_path = output_path.replace("\\", "/")
-        output_path = os.path.join(os.path.dirname(output_path), os.path.basename(output_path).split(".")[0] + ".jpg")
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        image_utils.convert_bytes_to_jpeg_and_resize(file_contents, str(output_path), largest_dimension)
+    """
+    Process the downloaded image files.
+
+    Parameters
+    ----------
+    file_contents : bytes
+        The contents of the file.
+    output_path : str
+        The path to save the file to.
+    largest_dimension : int
+        The largest dimension of the image.
+    """
+    output_path = output_path.replace("\\", "/")
+    output_path = os.path.join(os.path.dirname(output_path), os.path.basename(output_path).split(".")[0] + ".jpg")
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    image_utils.convert_bytes_to_jpeg_and_resize(file_contents, str(output_path), largest_dimension)
 
 
 def download_files(file_index, share_path, queue):
@@ -167,7 +169,7 @@ def print_download_info(i, elapsed_time, total_size_downloaded, file_index):
         The total size of the downloaded files.
     file_index : list of str
         The index of the files to download.
-    
+
     Returns
     -------
     int
@@ -188,19 +190,18 @@ def print_download_info(i, elapsed_time, total_size_downloaded, file_index):
 
 def main():
     args = setup_cli().parse_args()
-
     smb.create_connection(args.server, args.username, args.password, args.credfile)
 
     output_directory = "/scratch/gpfs/RUSTOW/test"
     share_path = rf"\\{args.server}\{args.share}"
     directory_paths_on_share = ["EVE_DRIVE"]
 
+    largest_dimension = 1024
+    num_workers = 16
+
     file_index = create_image_index(share_path, directory_paths_on_share)
 
     queue = multiprocessing.Queue()
-    largest_dimension = 1000
-
-    num_workers = 16
     workers = [
         multiprocessing.Process(target=worker, args=(output_directory, queue, process_image, largest_dimension))
         for _ in range(num_workers)
