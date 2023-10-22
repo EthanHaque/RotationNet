@@ -234,7 +234,7 @@ def exclude_files_starting_with(file_index, character):
     list of str
         The filtered list of files.
     """
-    return [f for f in file_index if not os.path.basename(f).startswith(character)]
+    return [f for f in file_index if not f.split("\\")[-1].startswith(character)]
 
 
 def filter_unique_items(items, key_function, priority_function):
