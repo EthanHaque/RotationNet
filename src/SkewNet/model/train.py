@@ -10,7 +10,6 @@ from utils.logging_utils import setup_logging
 import logging
 
 
-
 def circular_mse(y_pred, y_true):
     """Compute the circular mean squared error between two tensors.
 
@@ -30,7 +29,6 @@ def circular_mse(y_pred, y_true):
     """
     error = torch.atan2(torch.sin(y_pred - y_true), torch.cos(y_pred - y_true))
     return torch.mean(error ** 2)
-
 
 
 def train(model, train_loder, optimizer, device, *args):
@@ -93,7 +91,7 @@ def validation(model, validation_loader, device, *args):
 
 
 def main():
-    # setup_logging("train_model", log_level=logging.INFO)
+    setup_logging("train_model", log_level=logging.INFO)
     logger = logging.getLogger(__name__)
 
     img_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
