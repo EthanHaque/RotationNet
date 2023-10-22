@@ -1,7 +1,8 @@
-import logging
 import argparse
-from smbclient import register_session, scandir, open_file
+import logging
 import os
+
+from smbclient import open_file, register_session, scandir
 
 
 def _get_credentials(credentials_file):
@@ -12,7 +13,7 @@ def _get_credentials(credentials_file):
     ----------
     credentials_file : str
         The path to the credentials file.
-    
+
     Returns
     -------
     username : str
@@ -69,7 +70,7 @@ def download_file_to_memory(share_path, file_path):
     """
     with open_file(rf"{share_path}\{file_path}", "rb") as file:
         return file.read()
-    
+
 
 def download_file_to_disk(share_path, file_path, destination_path):
     """
@@ -91,7 +92,8 @@ def download_file_to_disk(share_path, file_path, destination_path):
 
 def create_file_index(share_path, start_directory):
     """
-    Recursively traverse the directories and create an index of all the files on the share starting from the specified path.
+    Recursively traverse the directories and create an index of all 
+    the files on the share starting from the specified path.
 
     Parameters
     ----------
@@ -115,7 +117,6 @@ def create_file_index(share_path, start_directory):
             file_index.extend(create_file_index(share_path, start_directory + "\\" + file_info.name))
 
     return file_index
-
 
 
 def filter_files_by_extension(file_index, extensions):
@@ -183,7 +184,6 @@ def filter_unique_items(items, key_function, priority_function):
     return list(item_dict.values())
 
 
-
 # def save_file_index(file_index, destination_path):
 #     """
 #     Save the file index to disk.
@@ -243,19 +243,18 @@ def main():
         extension = os.path.splitext(file)[-1].lower()
         return extensions.index(extension) if extension in extensions else len(extensions)
 
-
-    image_extensions = ('.tif', '.tiff', '.jpeg', '.jpg', '.png', '.jp2')
+    image_extensions = (".tif", ".tiff", ".jpeg", ".jpg", ".png", ".jp2")
 
     file_index = []
     for path in directory_paths_on_share:
         partial_index = create_file_index(share_path, path)
         partial_index = filter_files_by_extension(partial_index, image_extensions)
-        partial_index = exclude_files_starting_with(partial_index, '.')
+        partial_index = exclude_files_starting_with(partial_index, ".")
 
         partial_index = filter_unique_items(
-            partial_index, 
-            key_function=get_file_name_without_extension, 
-            priority_function=lambda file: get_file_extension_priority(file, image_extensions)
+            partial_index,
+            key_function=get_file_name_without_extension,
+            priority_function=lambda file: get_file_extension_priority(file, image_extensions),
         )
 
         file_index.extend(partial_index)
@@ -267,7 +266,7 @@ def main():
 
     # for file in file_index:
     #     file_contents = download_file_to_memory(share_path, file)
-        
+
     #     # Create the same directory structure in the output directory
     #     output_path = os.path.join(output_directory, os.path.splitext(file)[0] + '.jpg')
     #     # Replace backslashes with forward slashes for Linux
