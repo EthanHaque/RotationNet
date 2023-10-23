@@ -2,10 +2,11 @@ import torch
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 from torch import optim
-from model.rotated_images_dataset import RotatedImageDataset
-from model.rotation_net import RotationNetMobileNetV3Backbone
-from utils.logging_utils import setup_logging
+from rotated_images_dataset import RotatedImageDataset
+from rotation_net import RotationNetMobileNetV3Backbone
+from SkewNet.utils.logging_utils import setup_logging
 import logging
+import time
 
 
 class Trainer:
@@ -99,7 +100,7 @@ class Trainer:
         return total_loss / len(loader)
     
 
-    def setup_data_loaders(img_dir, annotations_file, batch_size, model):
+    def setup_data_loaders(self, img_dir, annotations_file, batch_size, model):
         """Setup the data loaders for the training and test datasets.
 
         Parameters
@@ -146,6 +147,8 @@ class Trainer:
         logger = logging.getLogger(__name__)
         train_loader, test_loader = self.setup_data_loaders(img_dir, annotations_file, batch_size, self.model)
 
+        model_name = f"{self.model.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}.pth"
+
         for epoch in range(num_epochs):
             logger.info(f"Epoch {epoch+1}/{num_epochs}")
 
@@ -155,7 +158,7 @@ class Trainer:
             test_loss = self.evaluate(test_loader, desc="Testing")
             logger.info(f"Test loss: {test_loss:.4f}")
 
-        torch.save(self.model.state_dict(), "/path/to/save/model.pth")
+        torch.save(self.model.state_dict(), f"/scratch/gpfs/RUSTOW/deskewing_models/{model_name}")
         logger.info("Model saved successfully.")
 
 
