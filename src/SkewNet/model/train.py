@@ -1,5 +1,5 @@
 import torch
-from tqdm import tqdm
+from tqdm import tqdm, trange
 from torch.utils.data import DataLoader
 from torch import optim
 from rotated_images_dataset import RotatedImageDataset
@@ -61,6 +61,7 @@ class Trainer:
         float
             The average loss for the epoch.
         """
+        logger = logging.getLogger(__name__)
         self.model.train()
         total_loss = 0.0
         for data, target in tqdm(train_loader, desc="Training", leave=False):
@@ -71,6 +72,7 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item()
+            logger.debug(f"Batch loss: {loss.item():.4f}")
         return total_loss / len(train_loader)
 
 
@@ -89,6 +91,7 @@ class Trainer:
         float
             The average loss for the dataset.
         """
+        logger = logging.getLogger(__name__)
         self.model.eval()
         total_loss = 0.0
         with torch.no_grad():
@@ -97,6 +100,7 @@ class Trainer:
                 output = self.model(data)
                 loss = self.circular_mse(output, target)
                 total_loss += loss.item()
+                logger.debug(f"Batch loss: {loss.item():.4f}")
         return total_loss / len(loader)
     
 
@@ -149,7 +153,7 @@ class Trainer:
 
         model_name = f"{self.model.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}.pth"
 
-        for epoch in range(num_epochs):
+        for epoch in trange(num_epochs, desc="Epoch"):
             logger.info(f"Epoch {epoch+1}/{num_epochs}")
 
             train_loss = self.train_epoch(train_loader)
@@ -163,8 +167,6 @@ class Trainer:
 
 
 def main():
-    setup_logging("train_model", log_level=logging.INFO)
-
     img_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
     annotations_file = "/scratch/gpfs/RUSTOW/deskewing_datasets/synthetic_image_angles.csv"
 
@@ -175,6 +177,10 @@ def main():
 
 
     model = RotationNetMobileNetV3Backbone().to(device)
+
+    logfile_prefix = f"train_model_{model.__class__.__name__}"
+    setup_logging(logfile_prefix, log_level=logging.INFO, log_to_stdout=False)
+
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     trainer = Trainer(model, optimizer, device)
     trainer.train_model(img_dir, annotations_file, batch_size, num_epochs)
