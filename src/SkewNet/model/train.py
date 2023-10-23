@@ -3,7 +3,7 @@ from tqdm import tqdm, trange
 from torch.utils.data import DataLoader
 from torch import optim
 from rotated_images_dataset import RotatedImageDataset
-from rotation_net import RotationNetMobileNetV3Backbone
+from rotation_net import RotationNetSmallNetworkTest
 from SkewNet.utils.logging_utils import setup_logging
 import logging
 import time
@@ -65,7 +65,6 @@ class Trainer:
         self.model.train()
         total_loss = 0.0
         for data, target in tqdm(train_loader, desc="Training", leave=False):
-            logger.debug(f"Batch size: {data.shape[0]}")
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -95,15 +94,26 @@ class Trainer:
         logger = logging.getLogger(__name__)
         self.model.eval()
         total_loss = 0.0
+        total_batches = len(loader)
+
         with torch.no_grad():
-            for data, target in tqdm(loader, desc=desc, leave=False):
-                logger.debug(f"Batch size: {data.shape[0]}")
+            for batch_num, (data, target) in enumerate(tqdm(loader, desc=desc, leave=False), start=1):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.circular_mse(output, target)
                 total_loss += loss.item()
-                logger.debug(f"Batch loss: {loss.item():.4f}")
-        return total_loss / len(loader)
+
+                avg_loss = total_loss / batch_num
+
+                logger.debug(
+                    "Batch %d/%d - Loss: %.4f | Cumulative Loss: %.4f | Average Loss: %.4f",
+                    batch_num, total_batches, loss.item(), total_loss, avg_loss
+                )
+
+        avg_loss = total_loss / total_batches
+        logger.info("%s - Average Loss: %.4f", desc, avg_loss)
+
+        return avg_loss
     
 
     def setup_data_loaders(self, img_dir, annotations_file, batch_size, model):
@@ -172,16 +182,25 @@ def main():
     img_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
     annotations_file = "/scratch/gpfs/RUSTOW/deskewing_datasets/synthetic_image_angles.csv"
 
-    batch_size = 64
+    batch_size = 32
     learning_rate = 0.001
-    num_epochs = 10
+    num_epochs = 100
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-    model = RotationNetMobileNetV3Backbone().to(device)
+    model = RotationNetSmallNetworkTest().to(device)
 
     logfile_prefix = f"train_model_{model.__class__.__name__}"
     setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=False)
+
+
+    logger = logging.getLogger(__name__)
+    logger.debug("Device: %s", device)
+    logger.debug("Batch size: %d", batch_size)
+    logger.debug("Learning rate: %.4f", learning_rate)
+    logger.debug("Number of epochs: %d", num_epochs)
+    logger.debug("Model: %s", model.__class__.__name__)
+    
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     trainer = Trainer(model, optimizer, device)
