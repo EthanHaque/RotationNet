@@ -10,6 +10,17 @@ import logging
 
 
 class Trainer:
+    """A class for training a model.
+
+    Attributes
+    ----------
+    model : torch.nn.Module
+        The model to train.
+    optimizer : torch.optim.Optimizer
+        The optimizer to use for training.
+    device : torch.device
+        The device to use for training.
+    """
     def __init__(self, model, optimizer, device):
         self.model = model
         self.optimizer = optimizer
@@ -38,6 +49,18 @@ class Trainer:
 
 
     def train_epoch(self, train_loader):
+        """Train the model for one epoch.
+        
+        Parameters
+        ----------
+        train_loader : torch.utils.data.DataLoader
+            The data loader for the training dataset.
+            
+        Returns
+        -------
+        float
+            The average loss for the epoch.
+        """
         self.model.train()
         total_loss = 0.0
         for data, target in tqdm(train_loader, desc="Training", leave=False):
@@ -52,6 +75,20 @@ class Trainer:
 
 
     def evaluate(self, loader, desc="Testing"):
+        """Evaluate the model on the given dataset.
+
+        Parameters
+        ----------
+        loader : torch.utils.data.DataLoader
+            The data loader for the dataset.
+        desc : str, optional
+            The description to use for the progress bar.
+
+        Returns
+        -------
+        float
+            The average loss for the dataset.
+        """
         self.model.eval()
         total_loss = 0.0
         with torch.no_grad():
@@ -91,7 +128,7 @@ def main():
     train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=20, prefetch_factor=4)
 
     test_dataset = RotatedImageDataset(annotations_file, img_dir, subset="test", transform=image_transforms["test"])
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=20, prefetch_factor=4)  # No need to shuffle the test dataset
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=20, prefetch_factor=4) 
 
     model = RotationNetMobileNetV3Backbone().to(device)
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
