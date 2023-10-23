@@ -65,6 +65,7 @@ class Trainer:
         self.model.train()
         total_loss = 0.0
         for data, target in tqdm(train_loader, desc="Training", leave=False):
+            logger.debug(f"Batch size: {data.shape[0]}")
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -96,6 +97,7 @@ class Trainer:
         total_loss = 0.0
         with torch.no_grad():
             for data, target in tqdm(loader, desc=desc, leave=False):
+                logger.debug(f"Batch size: {data.shape[0]}")
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.circular_mse(output, target)
@@ -179,7 +181,7 @@ def main():
     model = RotationNetMobileNetV3Backbone().to(device)
 
     logfile_prefix = f"train_model_{model.__class__.__name__}"
-    setup_logging(logfile_prefix, log_level=logging.INFO, log_to_stdout=False)
+    setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=False)
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     trainer = Trainer(model, optimizer, device)
