@@ -77,10 +77,11 @@ def create_angle_dataframe(json_directory, image_directory):
     FileNotFoundError
         If the corresponding image file for a JSON file is not found.
     """
+    logger = logging.getLogger(__name__)
     json_files = get_json_files(json_directory)
     data = []
 
-    for json_file in json_files:
+    for i, json_file in enumerate(json_files):
         image_filename = os.path.basename(json_file).rsplit('.', 1)[0] + ".jpg"
         image_path = os.path.join(image_directory, image_filename)
 
@@ -93,6 +94,9 @@ def create_angle_dataframe(json_directory, image_directory):
         except (ValueError, json.JSONDecodeError) as e:
             print(e)
             continue
+
+        if i % 10000 == 0:
+            logger.info(f"Processed {i}/{len(json_files)} files")
 
     return pd.DataFrame(data, columns=['filename', 'angle'])
 
