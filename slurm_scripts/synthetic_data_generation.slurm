@@ -4,9 +4,9 @@
 #SBATCH --error=logs/synthetic_data_generation%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=8G
-#SBATCH --time=01:00:00
+#SBATCH --cpus-per-task=28
+#SBATCH --mem=32G
+#SBATCH --time=11:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=eh0560@princeton.edu
 
