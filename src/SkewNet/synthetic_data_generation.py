@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 from utils import image_utils, logging_utils
 import pandas as pd
+from sklearn.model_selection import train_test_split
 
 
 def compose_document_onto_background(document_image, background_image, output_images_dir):
@@ -219,7 +220,17 @@ def main():
 
     annotations = [annotation for annotation in annotations if annotation is not None]
     annotations_df = pd.DataFrame(annotations)
-    annotations_df.to_csv(annotations_file, index=False)
+    train_df, test_df = train_test_split(annotations_df, test_size=0.3, random_state=42)
+    test_df, val_df = train_test_split(test_df, test_size=1/3, random_state=42) # Getting 20% test and 10% val
+
+    train_df = train_df.assign(split="train")
+    test_df = test_df.assign(split="test")
+    val_df = val_df.assign(split="val")
+
+    final_df = pd.concat([train_df, test_df, val_df])
+
+    final_df.to_csv(annotations_file, index=False)
+    logger.info(f"Saved annotations to {annotations_file}")
 
     # for i in range(len(document_images)):
     #     process_image(document_images[i], random_background_images[i], output_images_dir, i)
