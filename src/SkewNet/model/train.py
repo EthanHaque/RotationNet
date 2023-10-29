@@ -3,7 +3,7 @@ from tqdm import tqdm, trange
 from torch.utils.data import DataLoader
 from torch import optim
 from rotated_images_dataset import RotatedImageDataset
-from rotation_net import RotationNetSmallNetworkTest
+from rotation_net import RotationNetLargeNetworkTest
 from SkewNet.utils.logging_utils import setup_logging
 import logging
 import time
@@ -27,7 +27,7 @@ class Trainer:
         self.device = device
 
 
-    def circular_mse(self, y_pred, y_true):
+    def circular_mse(self, y_pred, y_true, scale=1.0):
         """Compute the circular mean squared error between two tensors.
 
         Parameters
@@ -38,6 +38,9 @@ class Trainer:
         y_true : torch.Tensor
             The ground truth values. Expected to be a tensor of shape
             (batch_size, 1).
+        scale : float, optional
+            The scale to use for the error. This is used to scale the error
+            before taking the mean.
 
         Returns
         -------
@@ -45,6 +48,7 @@ class Trainer:
             The circular mean squared error between the two tensors.
         """
         error = torch.atan2(torch.sin(y_pred - y_true), torch.cos(y_pred - y_true))
+        error = error * scale
         return torch.mean(error ** 2)
 
 
@@ -64,7 +68,9 @@ class Trainer:
         logger = logging.getLogger(__name__)
         self.model.train()
         total_loss = 0.0
-        for data, target in tqdm(train_loader, desc="Training", leave=False):
+        total_batches = len(train_loader)
+
+        for batch_num, (data, target) in enumerate(tqdm(train_loader, desc="Training", leave=False), start=1):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -72,8 +78,19 @@ class Trainer:
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item()
-            logger.debug(f"Batch loss: {loss.item():.4f}")
-        return total_loss / len(train_loader)
+
+            average_loss = total_loss / (batch_num)
+
+            logger.debug(
+                "Batch %d/%d - Loss: %.4f | Average Loss: %.4f",
+                batch_num, total_batches, loss.item(), average_loss
+            )
+
+        total_average_loss = total_loss / total_batches
+        logger.info("Training - Average Loss: %.4f", total_average_loss)
+
+        return total_average_loss
+
 
 
     def evaluate(self, loader, desc="Testing"):
@@ -97,23 +114,16 @@ class Trainer:
         total_batches = len(loader)
 
         with torch.no_grad():
-            for batch_num, (data, target) in enumerate(tqdm(loader, desc=desc, leave=False), start=1):
+            for data, target in tqdm(loader, desc=desc, leave=False):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.circular_mse(output, target)
                 total_loss += loss.item()
 
-                avg_loss = total_loss / batch_num
+        total_average_loss = total_loss / total_batches
+        logger.info("%s - Average Loss: %.4f", desc, total_average_loss)
 
-                logger.debug(
-                    "Batch %d/%d - Loss: %.4f | Cumulative Loss: %.4f | Average Loss: %.4f",
-                    batch_num, total_batches, loss.item(), total_loss, avg_loss
-                )
-
-        avg_loss = total_loss / total_batches
-        logger.info("%s - Average Loss: %.4f", desc, avg_loss)
-
-        return avg_loss
+        return total_average_loss
     
 
     def setup_data_loaders(self, img_dir, annotations_file, batch_size, model):
@@ -179,16 +189,16 @@ class Trainer:
 
 
 def main():
-    img_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
-    annotations_file = "/scratch/gpfs/RUSTOW/deskewing_datasets/synthetic_image_angles.csv"
+    img_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
+    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
 
-    batch_size = 32
-    learning_rate = 0.001
+    batch_size = 1
+    learning_rate = 0.0004
     num_epochs = 100
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-    model = RotationNetSmallNetworkTest().to(device)
+    model = RotationNetLargeNetworkTest().to(device)
 
     logfile_prefix = f"train_model_{model.__class__.__name__}"
     setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=False)
