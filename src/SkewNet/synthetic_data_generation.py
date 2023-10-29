@@ -32,6 +32,11 @@ def compose_document_onto_background(document_image, background_image, output_im
     """
     logger = logging.getLogger(__name__)
 
+    # randomly scaling the document image and changing aspect ratio
+    random_x_scale = np.random.uniform(0.75, 1.1)
+    random_y_scale = np.random.uniform(0.75, 1.1)
+    document_image = cv2.resize(document_image, (0, 0), fx=random_x_scale, fy=random_y_scale)
+
     initial_backgound_height, initial_backgound_width = background_image.shape[:2]
     initial_document_height, initial_document_width = document_image.shape[:2]
 
