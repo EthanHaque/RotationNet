@@ -197,7 +197,7 @@ def main():
     directory_paths_on_share = ["EVE_DRIVE", "cairogeniza"]
 
     largest_dimension = 1024
-    num_workers = 16
+    num_workers = 32
 
     file_index = create_image_index(share_path, directory_paths_on_share)
 
