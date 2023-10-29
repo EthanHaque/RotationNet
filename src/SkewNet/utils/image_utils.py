@@ -2,6 +2,7 @@ import logging
 import os
 import cv2
 import numpy as np
+import math
 
 
 def convert_png_to_jpeg(png_path, output_directory, new_name=None,
@@ -81,8 +82,6 @@ def convert_bytes_to_jpeg_and_resize(file_contents, output_path, largest_dimensi
         The largest dimension of the resized image.
     """
     if file_contents is None:
-        # temp 
-        print("output_path: ", output_path)
         raise ValueError("File contents cannot be None")
     array = np.frombuffer(file_contents, dtype=np.uint8)
     img = cv2.imdecode(array, cv2.IMREAD_COLOR)
@@ -131,7 +130,7 @@ def rotate_image(image, angle):
     image : numpy.ndarray
         The image to rotate.
     angle : float
-        The angle to rotate the image by in degrees.
+        The angle to rotate the image by in radians.
 
     Returns
     -------
@@ -140,25 +139,62 @@ def rotate_image(image, angle):
     """
     logger = logging.getLogger(__name__)
     height, width = image.shape[:2]
+    new_width, new_height = get_size_of_rotated_image(width, height, angle)
+    degrees = angle * 180 / math.pi
 
-    # Handle the case for images with alpha channel
-    if image.shape[2] == 4:
-        b, g, r, a = cv2.split(image)
+    rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), degrees, 1)
+    rotation_matrix[0, 2] += (new_width - width) / 2
+    rotation_matrix[1, 2] += (new_height - height) / 2
 
-        rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
-        b = cv2.warpAffine(b, rotation_matrix, (width, height))
-        g = cv2.warpAffine(g, rotation_matrix, (width, height))
-        r = cv2.warpAffine(r, rotation_matrix, (width, height))
-        a = cv2.warpAffine(a, rotation_matrix, (width, height))
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (new_width, new_height))
 
-        rotated_image = cv2.merge((b, g, r, a))
-    else:
-        rotation_matrix = cv2.getRotationMatrix2D((width / 2, height / 2), angle, 1)
-        rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
-
-    logger.info(f"Rotated image by {angle} degrees")
+    logger.info(f"Rotated image by {angle} radians")
     return rotated_image
 
+
+def superimpose_image_on_background(image, background, mask, x, y):
+    """
+    Superimpose an image on a background image at the specified coordinates.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The image to superimpose.
+    background : numpy.ndarray
+        The background image.
+    mask : numpy.ndarray
+        The mask for the image with the same shape as the image.
+    x : int
+        The x coordinate of the top left corner of the image.
+    y : int
+        The y coordinate of the top left corner of the image.
+
+    Returns
+    -------
+    numpy.ndarray
+        The superimposed image.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Superimposing image at ({x}, {y})")
+    background_height, background_width = background.shape[:2]
+    image_height, image_width = image.shape[:2]
+
+    if x + image_width > background_width or y + image_height > background_height:
+        logger.error("Image cannot be superimposed at specified coordinates")
+        return background
+
+    if mask is not None:
+        region_of_interest = background[y:y + image_height, x:x + image_width]
+        image_and_mask = cv2.bitwise_and(image, mask)
+        not_mask = cv2.bitwise_not(mask)
+        roi_and_not_mask = cv2.bitwise_and(region_of_interest, not_mask)
+        blended_image = image_and_mask + roi_and_not_mask
+        # blended_image = cv2.bitwise_and(image, mask) + cv2.bitwise_and(region_of_interest, cv2.bitwise_not(mask))
+        background[y:y + image_height, x:x + image_width] = blended_image
+    else:
+        background[y:y + image_height, x:x + image_width] = image
+
+    return background
 
 def get_file_name_without_extension(file):
     """
@@ -176,3 +212,166 @@ def get_file_name_without_extension(file):
     """
     name, _ = os.path.splitext(os.path.basename(file))
     return name
+
+
+def invert_image_channels(image):
+    """
+    Invert the channels of an image.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The image to invert.
+
+    Returns
+    -------
+    numpy.ndarray
+        The inverted image.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info("Inverting image channels")
+    return cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+
+def get_size_of_rotated_image(width, height, angle):
+    """Returns the new width and height of the image after rotation.
+
+    Parameters
+    ----------
+    width : int
+        The width of the image.
+    height : int
+        The height of the image.
+    angle : float
+        The angle to rotate the image by in radians.
+
+    Returns
+    -------
+    tuple of int
+        The new width and height of the image.
+    """
+    new_width = abs(width * math.cos(angle)) + abs(height * math.sin(angle))
+    new_height = abs(width * math.sin(angle)) + abs(height * math.cos(angle))
+
+    return int(new_width), int(new_height)
+
+
+def get_largest_inscribed_rectangle_dimensions(width, height, angle):
+    """Returns the width and height of the largest inscribed rectangle after rotation
+    with sides parallel to the x and y axes.
+
+    Parameters
+    ----------
+    width : int
+        The width of the image.
+    height : int
+        The height of the image.
+    angle : float
+        The angle to rotate the image by in radians.
+
+    Returns
+    -------
+    tuple of int
+        The width and height of the largest inscribed rectangle.
+    """
+    #TODO: clean this method up.
+    if width <= 0 or height <= 0:
+        return 0, 0
+
+    width_is_longer = width >= height
+    longer_side, shorter_side = (width, height) if width_is_longer else (height, width)
+
+    abs_sin_angle = abs(math.sin(angle))
+    abs_cos_angle = abs(math.cos(angle))
+
+    # Determine if the rectangle is half or fully constrained, and calculate dimensions
+    if shorter_side <= 2 * abs_sin_angle * abs_cos_angle * longer_side or  abs(abs_sin_angle - abs_cos_angle) < 1e-10:
+        # Half constrained case
+        x = 0.5 * shorter_side
+        inscribed_width, inscribed_height = (x / abs_sin_angle, x / abs_cos_angle) if width_is_longer else (x / abs_cos_angle, x / abs_sin_angle)
+    else:
+        # Fully constrained case
+        cos_2angle = abs_cos_angle**2 - abs_sin_angle**2
+        inscribed_width = (width * abs_cos_angle - height * abs_sin_angle) / cos_2angle
+        inscribed_height = (height * abs_cos_angle - width * abs_sin_angle) / cos_2angle
+
+    return int(inscribed_width), int(inscribed_height)
+
+
+def flip_image(image, axis):
+    """Flip an image along the specified axis.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The image to flip.
+    axis : int
+        The axis to flip the image along. 0 is vertical, 1 is horizontal, and -1 is both.
+
+    Returns
+    -------
+    numpy.ndarray
+        The flipped image.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Flipping image along axis {axis}")
+    return cv2.flip(image, axis)
+
+
+def crop_image(image, x1, y1, width, height):
+    """Crop an image.
+
+    Parameters
+    ----------
+    image : numpy.ndarray
+        The image to crop.
+    x1 : int
+        The x coordinate of the top left corner of the crop.
+    y1 : int
+        The y coordinate of the top left corner of the crop.
+    width : int
+        The width of the crop.
+    height : int
+        The height of the crop.
+
+    Returns
+    -------
+    numpy.ndarray
+        The cropped image.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"Cropping image from ({x1}, {y1}) to ({x1 + width}, {y1 + height})")
+    return image[y1:y1 + height, x1:x1 + width]
+
+
+def crop_from_angle(rotated_image, old_width, old_height, angle):
+    """Crop an image from the specified angle. The image will be cropped to the largest inscribed rectangle.
+
+    Parameters
+    ----------
+    rotated_image : numpy.ndarray
+        The image to crop.
+    old_width : int 
+        The width of the image before rotation.
+    old_height : int
+        The height of the image before rotation.
+    angle : float
+        The angle to rotate the image by in radians.
+
+    Returns
+    -------
+    numpy.ndarray
+        The cropped image.
+    """
+    wr, hr = get_largest_inscribed_rectangle_dimensions(old_width, old_height, angle)
+
+    # Now, calculate the position where this rectangle should be cropped from the center of the rotated image
+    center_x = rotated_image.shape[1] // 2
+    center_y = rotated_image.shape[0] // 2
+    
+    x1 = max(0, center_x - int(wr // 2))
+    y1 = max(0, center_y - int(hr // 2))
+    x2 = min(rotated_image.shape[1], center_x + int(wr // 2))
+    y2 = min(rotated_image.shape[0], center_y + int(hr // 2))
+
+    return rotated_image[y1:y2, x1:x2]
