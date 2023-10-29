@@ -4,6 +4,7 @@ import glob
 import pandas as pd
 from utils.logging_utils import setup_logging
 import logging
+from sklearn.model_selection import train_test_split
 
 
 def get_json_files(directory):
@@ -113,17 +114,29 @@ def main(json_directory, image_directory, output_csv):
     -------
     None
     """
-    # TODO: add train, test, val split
     setup_logging("create_label_file", log_level=logging.INFO)
     logger = logging.getLogger(__name__)
     df = create_angle_dataframe(json_directory, image_directory)
-    df.to_csv(output_csv, index=False)
+
+    # Split the DataFrame into train, test, and validation sets
+    train_df, temp_df = train_test_split(df, test_size=0.3, random_state=42)
+    test_df, val_df = train_test_split(temp_df, test_size=1/3, random_state=42)  # Getting a 20% test and 10% validation split from the 30%
+
+    # Adding a 'split' column to the DataFrame
+    train_df = train_df.assign(split='train')
+    test_df = test_df.assign(split='test')
+    val_df = val_df.assign(split='validation')
+
+    # Concatenating the DataFrames back together
+    final_df = pd.concat([train_df, test_df, val_df])
+
+    final_df.to_csv(output_csv, index=False)
     logger.info(f"CSV file saved to {output_csv}")
 
 
 if __name__ == "__main__":
-    json_directory = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data_annotations"
-    image_directory = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_data"
-    output_csv = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/synthetic_image_angles.csv"
+    json_directory = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_annotations"
+    image_directory = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
+    output_csv = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
 
     main(json_directory, image_directory, output_csv)
