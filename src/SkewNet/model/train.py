@@ -243,16 +243,18 @@ def main():
     img_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
     annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
 
-    batch_size = 1
-    learning_rate = 0.0004
+    batch_size = 64
+    learning_rate = 0.004
     num_epochs = 100
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-    model = RotationNetLargeNetworkTest().to(device)
+    model = RotationNetLargeNetworkTest()
+    # model = nn.DataParallel(model)
+    model.to(device)
 
     logfile_prefix = f"train_model_{model.__class__.__name__}"
-    setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=False)
+    setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=True)
 
 
     logger = logging.getLogger(__name__)
