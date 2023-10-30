@@ -1,14 +1,17 @@
 import torch
 from tqdm import tqdm, trange
 from torch.utils.data import DataLoader
-from torch import optim
-from torch import nn
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+import torch.distributed as dist
+import torch.optim as optim
 from SkewNet.model.rotated_images_dataset import RotatedImageDataset
 from SkewNet.model.rotation_net import RotationNetLargeNetworkTest
 from SkewNet.utils.logging_utils import setup_logging
 from multiprocessing import cpu_count
 import logging
 import time
+import os
 
 
 class Trainer:
@@ -148,7 +151,7 @@ class Trainer:
         return total_average_loss
     
 
-    def setup_data_loaders(self, img_dir, annotations_file, batch_size, model):
+    def setup_data_loaders(self, img_dir, annotations_file, batch_size, model, rank, word_size):
         """Setup the data loaders for the training and test datasets.
 
         Parameters
@@ -161,6 +164,11 @@ class Trainer:
             The batch size to use for the data loaders.
         model : torch.nn.Module
             The model to use for the data loaders.
+        rank : int
+            The rank of the current process. The rank is used to determine
+            which subset of the dataset to use.
+        word_size : int
+            The number of processes.
 
         Returns
         -------
@@ -171,13 +179,15 @@ class Trainer:
         """
         # num_workers = cpu_count()
         num_workers = 20
-        train_dataset = RotatedImageDataset(annotations_file, img_dir, subset="train", transform=model.train_transform)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, prefetch_factor=2)
+        train_dataset = RotatedImageDataset(annotations_file, img_dir, subset="train", transform=model.module.train_transform)
+        train_sampler = DistributedSampler(train_dataset, num_replicas=word_size, rank=rank, shuffle=True)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, sampler=train_sampler, prefetch_factor=2)
 
-        test_dataset = RotatedImageDataset(annotations_file, img_dir, subset="test", transform=model.evaluation_transform)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, prefetch_factor=2)
+        test_dataset = RotatedImageDataset(annotations_file, img_dir, subset="test", transform=model.module.evaluation_transform)
+        test_sampler = DistributedSampler(test_dataset, num_replicas=word_size, rank=rank, shuffle=False)
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, sampler=test_sampler, prefetch_factor=2)
 
-        return train_loader, test_loader
+        return train_loader, test_loader, train_sampler, test_sampler
     
 
     def save_checkpoint(self, epoch, loss, filepath):
@@ -200,7 +210,7 @@ class Trainer:
         }, filepath)
     
 
-    def train_model(self, img_dir, annotations_file, batch_size, num_epochs):
+    def train_model(self, img_dir, annotations_file, batch_size, num_epochs, rank, word_size):
         """Train the model.
 
         Parameters
@@ -213,14 +223,21 @@ class Trainer:
             The batch size to use for the data loaders.
         num_epochs : int
             The number of epochs to train the model for.
+        rank : int
+            The rank of the current process. The rank is used to determine
+            which subset of the dataset to use.
+        word_size : int
+            The number of processes.
         """
         logger = logging.getLogger(__name__)
-        train_loader, test_loader = self.setup_data_loaders(img_dir, annotations_file, batch_size, self.model)
+        train_loader, test_loader, train_sampler, test_sampler = self.setup_data_loaders(img_dir, annotations_file, batch_size, self.model, rank, word_size)
 
         model_name = f"{self.model.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}.pth"
 
         best_loss = float("inf")
         for epoch in trange(num_epochs, desc="Epoch"):
+            train_sampler.set_epoch(epoch)
+            test_sampler.set_epoch(epoch)
             logger.info(f"Epoch {epoch+1}/{num_epochs}")
 
             train_loss = self.train_epoch(train_loader)
@@ -229,29 +246,41 @@ class Trainer:
             test_loss = self.evaluate(test_loader, desc="Testing")
             logger.info(f"Test loss: {test_loss:.4f}")
 
-            if test_loss < best_loss:
-                best_loss = test_loss
-                logger.info("New best loss. Saving model...")
-                checkpoint_name = f"{self.model.__class__.__name__}_best_checkpoint.pth"
-                self.save_checkpoint(epoch, test_loss, f"/scratch/gpfs/RUSTOW/deskewing_models/{checkpoint_name}")
+            if rank == 0:
+                if test_loss < best_loss:
+                    best_loss = test_loss
+                    checkpoint_name = f"{self.model.__class__.__name__}_best_checkpoint.pth"
+                    self.save_checkpoint(epoch, test_loss, f"/scratch/gpfs/RUSTOW/deskewing_models/{checkpoint_name}")
 
-        torch.save(self.model.state_dict(), f"/scratch/gpfs/RUSTOW/deskewing_models/{model_name}")
-        logger.info("Model saved successfully.")
+        if rank == 0:
+            torch.save(self.model.state_dict(), f"/scratch/gpfs/RUSTOW/deskewing_models/{model_name}")
+            logger.info("Model saved successfully.")
 
 
-def main():
+def main(rank, word_size):
+    """The main function for training a model.
+
+    Parameters
+    ----------
+    rank : int
+        The rank of the current process. The rank is used to determine
+        which subset of the dataset to use.
+    word_size : int
+        The number of processes.
+    """
     img_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
     annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
 
-    batch_size = 64
+    torch.cuda.set_device(rank)
+
+    batch_size = 96
     learning_rate = 0.004
     num_epochs = 100
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
-    model = RotationNetLargeNetworkTest()
-    # model = nn.DataParallel(model)
-    model.to(device)
+    dist.init_process_group("nccl", rank=rank, world_size=word_size)
+    model = RotationNetLargeNetworkTest().to(device)
+    model = DDP(model, device_ids=[rank], output_device=rank)
 
     logfile_prefix = f"train_model_{model.__class__.__name__}"
     setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=True)
@@ -267,8 +296,13 @@ def main():
 
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     trainer = Trainer(model, optimizer, device)
-    trainer.train_model(img_dir, annotations_file, batch_size, num_epochs)
+    trainer.train_model(img_dir, annotations_file, batch_size, num_epochs, rank, word_size)
+
+    dist.destroy_process_group()
 
 
 if __name__ == "__main__":
-    main()
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    word_size = torch.cuda.device_count()
+    torch.multiprocessing.spawn(main, args=(word_size,), nprocs=word_size, join=True)
