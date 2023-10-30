@@ -2,9 +2,11 @@ import torch
 from tqdm import tqdm, trange
 from torch.utils.data import DataLoader
 from torch import optim
-from rotated_images_dataset import RotatedImageDataset
-from rotation_net import RotationNetLargeNetworkTest
+from torch import nn
+from SkewNet.model.rotated_images_dataset import RotatedImageDataset
+from SkewNet.model.rotation_net import RotationNetLargeNetworkTest
 from SkewNet.utils.logging_utils import setup_logging
+from multiprocessing import cpu_count
 import logging
 import time
 
@@ -50,6 +52,26 @@ class Trainer:
         error = torch.atan2(torch.sin(y_pred - y_true), torch.cos(y_pred - y_true))
         error = error * scale
         return torch.mean(error ** 2)
+    
+
+    def mse(self, y_pred, y_true):
+        """Compute the mean squared error between two tensors.
+
+        Parameters
+        ----------
+        y_pred : torch.Tensor
+            The predictions from the model. Expected to be a tensor of shape
+            (batch_size, 1).
+        y_true : torch.Tensor
+            The ground truth values. Expected to be a tensor of shape
+            (batch_size, 1).
+
+        Returns
+        -------
+        torch.Tensor
+            The mean squared error between the two tensors.
+        """
+        return torch.mean((y_pred - y_true) ** 2)
 
 
     def train_epoch(self, train_loader):
@@ -74,7 +96,7 @@ class Trainer:
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            loss = self.circular_mse(output, target)
+            loss = self.mse(output, target)
             loss.backward()
             self.optimizer.step()
             total_loss += loss.item()
@@ -117,7 +139,7 @@ class Trainer:
             for data, target in tqdm(loader, desc=desc, leave=False):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
-                loss = self.circular_mse(output, target)
+                loss = self.mse(output, target)
                 total_loss += loss.item()
 
         total_average_loss = total_loss / total_batches
