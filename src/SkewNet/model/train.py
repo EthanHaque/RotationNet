@@ -169,13 +169,35 @@ class Trainer:
         torch.utils.data.DataLoader
             The data loader for the test dataset.
         """
+        # num_workers = cpu_count()
+        num_workers = 20
         train_dataset = RotatedImageDataset(annotations_file, img_dir, subset="train", transform=model.train_transform)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=20, prefetch_factor=4)
+        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, prefetch_factor=2)
 
         test_dataset = RotatedImageDataset(annotations_file, img_dir, subset="test", transform=model.evaluation_transform)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=20, prefetch_factor=4) 
+        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, prefetch_factor=2)
 
         return train_loader, test_loader
+    
+
+    def save_checkpoint(self, epoch, loss, filepath):
+        """Save a checkpoint for the model.
+
+        Parameters
+        ----------
+        epoch : int
+            The current epoch.
+        loss : float
+            The current loss.
+        filepath : str
+            The path to save the checkpoint to.
+        """
+        torch.save({
+            "epoch": epoch,
+            "model_state_dict": self.model.state_dict(),
+            "optimizer_state_dict": self.optimizer.state_dict(),
+            "loss": loss
+        }, filepath)
     
 
     def train_model(self, img_dir, annotations_file, batch_size, num_epochs):
@@ -197,6 +219,7 @@ class Trainer:
 
         model_name = f"{self.model.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}.pth"
 
+        best_loss = float("inf")
         for epoch in trange(num_epochs, desc="Epoch"):
             logger.info(f"Epoch {epoch+1}/{num_epochs}")
 
@@ -205,6 +228,12 @@ class Trainer:
 
             test_loss = self.evaluate(test_loader, desc="Testing")
             logger.info(f"Test loss: {test_loss:.4f}")
+
+            if test_loss < best_loss:
+                best_loss = test_loss
+                logger.info("New best loss. Saving model...")
+                checkpoint_name = f"{self.model.__class__.__name__}_best_checkpoint.pth"
+                self.save_checkpoint(epoch, test_loss, f"/scratch/gpfs/RUSTOW/deskewing_models/{checkpoint_name}")
 
         torch.save(self.model.state_dict(), f"/scratch/gpfs/RUSTOW/deskewing_models/{model_name}")
         logger.info("Model saved successfully.")
