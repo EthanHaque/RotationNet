@@ -1,19 +1,21 @@
 import os
 
-import lightning.pytorch as pl
+import pytorch_lightning as pl
 import torch
 import torch.optim as optim
 
 from SkewNet.model.rotated_images_dataset import RotatedImageDataset
-from SkewNet.model.rotation_net import RotationNetSmallNetworkTest
+from SkewNet.model.rotation_net import ModelRegistry
+from SkewNet.model.callbacks.better_progress_bar import BetterProgressBar
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from torchvision.utils import make_grid
 
 
 class LightningRotationNet(pl.LightningModule):
-    def __init__(self, model):
+    def __init__(self, model, learning_rate, weight_decay, *args, **kwargs):
         super().__init__()
+        self.save_hyperparameters()
         self.model = model
 
     def mse(self, y_pred, y_true):
@@ -67,10 +69,10 @@ class LightningRotationNet(pl.LightningModule):
         return pred
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.model.parameters(), lr=0.004)
+        optimizer = optim.Adam(self.model.parameters(), lr=self.hparams.learning_rate, weight_decay=self.hparams.weight_decay)
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
         return [optimizer], [scheduler]
-    
+
 
 def setup_data_loaders(annotations_file, img_dir, batch_size, num_workers, prefetch_factor, train_transform, val_transform, test_transform):
     train_dataset = RotatedImageDataset(
@@ -119,19 +121,20 @@ def setup_data_loaders(annotations_file, img_dir, batch_size, num_workers, prefe
 
 
 def main():
-    # BATCH_SIZE = 48
-    BATCH_SIZE = 16
-    # NUM_EPOCHS = 3
-    NUM_EPOCHS = 1
-    # NUM_WORKERS = int(os.environ["SLURM_CPUS_PER_TASK"])
-    NUM_WORKERS = 2
-    # NUM_NODES = int(os.environ["SLURM_NNODES"])
-    NUM_NODES = 1
-    # ALLOCATED_GPUS_PER_NODE = int(os.environ["SLURM_GPUS_ON_NODE"])
-    ALLOCATED_GPUS_PER_NODE = 1
+    BATCH_SIZE = 48
+    LEARNING_RATE = BATCH_SIZE * 0.0005
+    WEIGHT_DECAY = 0
+    NUM_EPOCHS = 10
+    NUM_WORKERS = int(os.environ["SLURM_CPUS_PER_TASK"])
+    NUM_NODES = int(os.environ["SLURM_NNODES"])
+    ALLOCATED_GPUS_PER_NODE = int(os.environ["SLURM_GPUS_ON_NODE"])
+    
 
+    # TODO: test the impact of using float16 instead of float32
+    torch.set_float32_matmul_precision("medium")
 
-    model = LightningRotationNet(RotationNetSmallNetworkTest())
+    model = ModelRegistry.get_model("LargeTestNetwork")
+    model = LightningRotationNet(model, LEARNING_RATE, WEIGHT_DECAY)
 
     train_transform = transforms.Compose([transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),])
     test_transform = transforms.Compose([])
@@ -145,11 +148,11 @@ def main():
         max_epochs=NUM_EPOCHS,
         logger=pl.loggers.TensorBoardLogger("logs/tensorboard", name="SkewNet"),
         callbacks=[
-            pl.callbacks.RichProgressBar(),
+            BetterProgressBar(),
             pl.callbacks.LearningRateMonitor(logging_interval="step"),
             pl.callbacks.ModelCheckpoint(
                 dirpath="/scratch/gpfs/RUSTOW/deskewing_models",
-                filename="SkewNet-{epoch:02d}-{val_loss:.2f}",
+                filename="SkewNet-{epoch:03d}-{val_loss:.5f}",
                 monitor="val_loss",
             )
         ],
