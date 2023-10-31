@@ -193,8 +193,7 @@ class Trainer:
         torch.utils.data.Sampler
             The sampler for the validation dataset.
         """
-        # num_workers = cpu_count()
-        num_workers = 32
+        num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])
         train_dataset = RotatedImageDataset(
             annotations_file, img_dir, subset="train", transform=self.model.module.train_transform
         )
@@ -313,15 +312,16 @@ class Trainer:
 
         validation_loss = self.evaluate(validation_loader, desc="validation")
 
-        self.writer.add_hparams(
-            {
-                "batch_size": batch_size,
-                "num_epochs": num_epochs,
-            },
-            {
-                "hparam/validation_loss": validation_loss,
-            },
-        )
+        if rank == 0:
+            self.writer.add_hparams(
+                {
+                    "batch_size": batch_size,
+                    "num_epochs": num_epochs,
+                },
+                {
+                    "hparam/validation_loss": validation_loss,
+                },
+            )
 
         self.writer.flush()
         self.writer.close()
@@ -354,14 +354,14 @@ def main(rank, word_size):
 
     batch_size = 48
     learning_rate = 0.004
-    num_epochs = 0
+    num_epochs = 1
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    dist.init_process_group("nccl", rank=rank, world_size=word_size)
+    dist.init_process_group("gloo", rank=rank, world_size=word_size)
     model = RotationNetSmallNetworkTest().to(device)
-    # model = DDP(model, device_ids=[rank], output_device=rank)
+    model = DDP(model, device_ids=[rank], output_device=rank)
 
-    optimizer = optim.Adam(model.module.parameters(), lr=learning_rate)
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     trainer = Trainer(model, optimizer, device, log_dir)
     trainer.train_model(img_dir, annotations_file, batch_size, num_epochs, rank, word_size)
 
