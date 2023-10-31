@@ -11,6 +11,7 @@ from SkewNet.model.rotation_net import RotationNetSmallNetworkTest
 class LightningRotationNet(pl.LightningModule):
     def __init__(self, model):
         super().__init__()
+        self.save_hyperparameters()
         self.model = model
 
     def mse(self, y_pred, y_true):
@@ -20,21 +21,21 @@ class LightningRotationNet(pl.LightningModule):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
-        self.log("train_loss", loss, sync_dist=True)
+        self.log("train_loss", loss, sync_dist=True, prog_bar=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
-        self.log("val_loss", loss, sync_dist=True)
+        self.log("val_loss", loss, sync_dist=True, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
-        self.log("test_loss", loss, sync_dist=True)
+        self.log("test_loss", loss, sync_dist=True, prog_bar=True)
         return loss
 
     def predict_step(self, batch, batch_idx):
