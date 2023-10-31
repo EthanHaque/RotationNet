@@ -17,23 +17,6 @@ class RotationNetMobileNetV3Backbone(nn.Module):
         x = self.dropout(x)
         x = self.fc1(x)
         return x
-
-
-    def train_transform(self, x):
-        image_transform = transforms.Compose([
-            transforms.Resize((224, 224), antialias=False),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-              ])
-        return image_transform(x)
-
-
-    def evaluation_transform(self, x):
-        image_transform = transforms.Compose([
-            transforms.Resize((224, 224), antialias=False),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
-        return image_transform(x)
     
 
 class RotationNetSmallNetworkTest(nn.Module):
@@ -60,21 +43,6 @@ class RotationNetSmallNetworkTest(nn.Module):
 
         return x
 
-
-    def train_transform(self, x):
-        image_transform = transforms.Compose([
-            transforms.Resize((1200, 900), antialias=False),
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
-        ])
-        return image_transform(x)
-
-
-    def evaluation_transform(self, x):
-        image_transform = transforms.Compose([
-            transforms.Resize((1200, 900), antialias=False),
-        ])
-        return image_transform(x)
-    
 
 class RotationNetLargeNetworkTest(nn.Module):
     def __init__(self):
@@ -117,16 +85,3 @@ class RotationNetLargeNetworkTest(nn.Module):
         x = self.fc2(x)
 
         return x
-
-
-    def train_transform(self, x):
-        image_transform = transforms.Compose([
-            transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),
-        ])
-        return image_transform(x)
-
-
-    def evaluation_transform(self, x):
-        image_transform = transforms.Compose([])
-        return image_transform(x)
-    
