@@ -6,7 +6,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from SkewNet.model.rotated_images_dataset import RotatedImageDataset
+from SkewNet.model.rotated_images_dataset import RotatedImagesModule
 from SkewNet.model.rotation_net import RotationNetSmallNetworkTest
 
 import lightning.pytorch as pl
@@ -61,11 +61,7 @@ def main():
     # Trades off precision for performance
     torch.set_float32_matmul_precision("medium" | "high")
 
-    model = RotationNetSmallNetworkTest()
-    train_transform = model.train_transform
-    test_transform = model.evaluation_transform
-
-    model = LightningRotationNet(model)
+    model = LightningRotationNet(RotationNetSmallNetworkTest())
 
     trainer = pl.Trainer(
         accelerator="gpu",
