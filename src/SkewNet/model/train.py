@@ -8,6 +8,7 @@ from SkewNet.model.rotated_images_dataset import RotatedImageDataset
 from SkewNet.model.rotation_net import RotationNetSmallNetworkTest
 from torch.utils.data import DataLoader
 from torchvision import transforms
+from torchvision.utils import make_grid
 
 
 class LightningRotationNet(pl.LightningModule):
