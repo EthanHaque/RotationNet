@@ -26,11 +26,32 @@ class LightningRotationNet(pl.LightningModule):
         self.log("train_loss", loss, sync_dist=True, prog_bar=True)
         return loss
 
+    def _make_grid(self, x, y, y_hat):
+        num_images = min(x.size(0), 4)  
+        x = x[:num_images]
+
+        degrees = y_hat[:num_images] * 180 / 3.141592
+        degrees = degrees.view(-1).tolist()  
+
+        rotated_images = []
+        for i in range(num_images):  
+            rotated_image = transforms.functional.rotate(x[i].unsqueeze(0), angle=-degrees[i], expand=False)
+            rotated_images.append(rotated_image.squeeze(0))  # Remove the batch dimension after rotating
+
+        # Create a grid of images with 2 images per row
+        grid = make_grid(rotated_images, nrow=2)
+        return grid
+    
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
         self.log("val_loss", loss, sync_dist=True, prog_bar=True)
+            
+        if batch_idx % 100 == 0:
+            grid = self._make_grid(x, y, y_hat)
+            self.logger.experiment.add_images("images", grid.unsqueeze(0), self.global_step)
+
         return loss
 
     def test_step(self, batch, batch_idx):
