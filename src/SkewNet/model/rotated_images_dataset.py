@@ -4,7 +4,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import Dataset
+from torch.utils.data import DataLoader, Dataset
 from torchvision.io import read_image
 
 
@@ -32,6 +32,7 @@ class RotatedImageDataset(Dataset):
         return image, label
 
 
+#TODO: this isn't working 
 class RotatedImagesModule(pl.LightningDataModule):
     def __init__(self, data_dir, annotations_file, batch_size, num_workers):
         super().__init__()
@@ -48,37 +49,43 @@ class RotatedImagesModule(pl.LightningDataModule):
         self.val_transform = transforms.Compose([])
         self.test_transform = transforms.Compose([])
 
+    def setup(self, stage=None):
+        if stage == "fit":
+            self.train_dataset = RotatedImageDataset(
+                self.annotations_file, self.data_dir, "train", transform=self.train_transform
+            )
+
+            self.val_dataset = RotatedImageDataset(
+                self.annotations_file, self.data_dir, "val", transform=self.val_transform
+            )
+        if stage == "test" or stage is None:
+            self.test_dataset = RotatedImageDataset(
+                self.annotations_file, self.data_dir, "test", transform=self.test_transform
+            )
+
     def train_dataloader(self):
-        train_dataset = RotatedImageDataset(
-            self.annotations_file, self.data_dir, "train", transform=self.train_transform
-        )
-        train_loader = torch.utils.data.DataLoader(
-            train_dataset,
+        return DataLoader(
+            self.train_dataset,
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
             prefetch_factor=self.prefetch_factor,
         )
-        return train_loader
 
     def val_dataloader(self):
-        val_dataset = RotatedImageDataset(self.annotations_file, self.data_dir, "val", transform=self.val_transform)
-        val_loader = torch.utils.data.DataLoader(
-            val_dataset,
+        return DataLoader(
+            self.val_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
             prefetch_factor=self.prefetch_factor,
         )
-        return val_loader
 
     def test_dataloader(self):
-        test_dataset = RotatedImageDataset(self.annotations_file, self.data_dir, "test", transform=self.test_transform)
-        test_loader = torch.utils.data.DataLoader(
-            test_dataset,
+        return DataLoader(
+            self.test_dataset,
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
             prefetch_factor=self.prefetch_factor,
         )
-        return test_loader
