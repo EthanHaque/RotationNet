@@ -1,17 +1,17 @@
+import os
+import time
+
+import psutil
 import torch
-from tqdm import tqdm, trange
-from torch.utils.data import DataLoader
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data.distributed import DistributedSampler
 import torch.distributed as dist
 import torch.optim as optim
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
+from torch.utils.tensorboard import SummaryWriter
+
 from SkewNet.model.rotated_images_dataset import RotatedImageDataset
-from SkewNet.model.rotation_net import RotationNetLargeNetworkTest
-from SkewNet.utils.logging_utils import setup_logging
-from multiprocessing import cpu_count
-import logging
-import time
-import os
+from SkewNet.model.rotation_net import RotationNetSmallNetworkTest
 
 
 class Trainer:
@@ -25,12 +25,17 @@ class Trainer:
         The optimizer to use for training.
     device : torch.device
         The device to use for training.
+    writer : torch.utils.tensorboard.SummaryWriter
+        The writer to use for writing TensorBoard logs.
     """
-    def __init__(self, model, optimizer, device):
+
+    def __init__(self, model, optimizer, device, log_dir="logs"):
         self.model = model
         self.optimizer = optimizer
         self.device = device
 
+        subfolder = f"{model.module.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}"
+        self.writer = SummaryWriter(log_dir=os.path.join(log_dir, subfolder))
 
     def circular_mse(self, y_pred, y_true, scale=1.0):
         """Compute the circular mean squared error between two tensors.
@@ -54,8 +59,7 @@ class Trainer:
         """
         error = torch.atan2(torch.sin(y_pred - y_true), torch.cos(y_pred - y_true))
         error = error * scale
-        return torch.mean(error ** 2)
-    
+        return torch.mean(error**2)
 
     def mse(self, y_pred, y_true):
         """Compute the mean squared error between two tensors.
@@ -76,26 +80,26 @@ class Trainer:
         """
         return torch.mean((y_pred - y_true) ** 2)
 
-
-    def train_epoch(self, train_loader):
+    def train_epoch(self, train_loader, epoch):
         """Train the model for one epoch.
-        
+
         Parameters
         ----------
         train_loader : torch.utils.data.DataLoader
             The data loader for the training dataset.
-            
+        epoch : int
+            The current epoch.
+
         Returns
         -------
         float
             The average loss for the epoch.
         """
-        logger = logging.getLogger(__name__)
         self.model.train()
         total_loss = 0.0
         total_batches = len(train_loader)
 
-        for batch_num, (data, target) in enumerate(tqdm(train_loader, desc="Training", leave=False), start=1):
+        for batch_num, (data, target) in enumerate(train_loader, start=1):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
@@ -104,21 +108,23 @@ class Trainer:
             self.optimizer.step()
             total_loss += loss.item()
 
-            average_loss = total_loss / (batch_num)
+            global_step = epoch * total_batches + batch_num
+            self.writer.add_scalar("Loss/train_batch", loss.item(), global_step)
 
-            logger.debug(
-                "Batch %d/%d - Loss: %.4f | Average Loss: %.4f",
-                batch_num, total_batches, loss.item(), average_loss
-            )
+            if batch_num % 100 == 0:
+                for name, param in self.model.named_parameters():
+                    self.writer.add_histogram(f"Params/{name}", param, global_step)
+                    if param.grad is not None:
+                        self.writer.add_histogram(f"Gradients/{name}", param.grad, global_step)
+
+                self.log_system_metrics("System/Training", global_step)
 
         total_average_loss = total_loss / total_batches
-        logger.info("Training - Average Loss: %.4f", total_average_loss)
+        self.writer.add_scalar("Loss/train", total_average_loss, epoch)
 
         return total_average_loss
 
-
-
-    def evaluate(self, loader, desc="Testing"):
+    def evaluate(self, loader, desc="test", epoch=None):
         """Evaluate the model on the given dataset.
 
         Parameters
@@ -126,32 +132,36 @@ class Trainer:
         loader : torch.utils.data.DataLoader
             The data loader for the dataset.
         desc : str, optional
-            The description to use for the progress bar.
+            The type of dataset being evaluated (e.g., "test", "validation").
 
         Returns
         -------
         float
             The average loss for the dataset.
         """
-        logger = logging.getLogger(__name__)
         self.model.eval()
         total_loss = 0.0
         total_batches = len(loader)
 
         with torch.no_grad():
-            for data, target in tqdm(loader, desc=desc, leave=False):
+            for batch_num, (data, target) in enumerate(loader, start=1):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.mse(output, target)
                 total_loss += loss.item()
 
+                if epoch is not None:
+                    global_step = epoch * total_batches + batch_num
+                    self.writer.add_scalar(f"Loss/{desc}_batch", loss.item(), global_step)
+
         total_average_loss = total_loss / total_batches
-        logger.info("%s - Average Loss: %.4f", desc, total_average_loss)
+        if epoch is not None:
+            self.writer.add_scalar(f"Loss/{desc}", total_average_loss, epoch)
+            self.log_system_metrics(f"System/{desc}", epoch)
 
         return total_average_loss
-    
 
-    def setup_data_loaders(self, img_dir, annotations_file, batch_size, model, rank, word_size):
+    def setup_data_loaders(self, img_dir, annotations_file, batch_size, rank, word_size):
         """Setup the data loaders for the training and test datasets.
 
         Parameters
@@ -162,8 +172,6 @@ class Trainer:
             The path to the CSV file containing the annotations.
         batch_size : int
             The batch size to use for the data loaders.
-        model : torch.nn.Module
-            The model to use for the data loaders.
         rank : int
             The rank of the current process. The rank is used to determine
             which subset of the dataset to use.
@@ -176,19 +184,57 @@ class Trainer:
             The data loader for the training dataset.
         torch.utils.data.DataLoader
             The data loader for the test dataset.
+        torch.utils.data.DataLoader
+            The data loader for the validation dataset.
+        torch.utils.data.Sampler
+            The sampler for the training dataset.
+        torch.utils.data.Sampler
+            The sampler for the test dataset.
+        torch.utils.data.Sampler
+            The sampler for the validation dataset.
         """
         # num_workers = cpu_count()
-        num_workers = 20
-        train_dataset = RotatedImageDataset(annotations_file, img_dir, subset="train", transform=model.module.train_transform)
+        num_workers = 32
+        train_dataset = RotatedImageDataset(
+            annotations_file, img_dir, subset="train", transform=self.model.module.train_transform
+        )
         train_sampler = DistributedSampler(train_dataset, num_replicas=word_size, rank=rank, shuffle=True)
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, sampler=train_sampler, prefetch_factor=2)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            sampler=train_sampler,
+            prefetch_factor=1,
+        )
 
-        test_dataset = RotatedImageDataset(annotations_file, img_dir, subset="test", transform=model.module.evaluation_transform)
+        test_dataset = RotatedImageDataset(
+            annotations_file, img_dir, subset="test", transform=self.model.module.evaluation_transform
+        )
         test_sampler = DistributedSampler(test_dataset, num_replicas=word_size, rank=rank, shuffle=False)
-        test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers, sampler=test_sampler, prefetch_factor=2)
+        test_loader = DataLoader(
+            test_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            sampler=test_sampler,
+            prefetch_factor=1,
+        )
 
-        return train_loader, test_loader, train_sampler, test_sampler
-    
+        validation_dataset = RotatedImageDataset(
+            annotations_file, img_dir, subset="val", transform=self.model.module.evaluation_transform
+        )
+        validation_sampler = DistributedSampler(validation_dataset, num_replicas=word_size, rank=rank, shuffle=False)
+        validation_loader = DataLoader(
+            validation_dataset,
+            batch_size=batch_size,
+            shuffle=False,
+            num_workers=num_workers,
+            sampler=validation_sampler,
+            prefetch_factor=1,
+        )
+
+        return train_loader, test_loader, train_sampler, test_sampler, validation_loader, validation_sampler
 
     def save_checkpoint(self, epoch, loss, filepath):
         """Save a checkpoint for the model.
@@ -202,13 +248,15 @@ class Trainer:
         filepath : str
             The path to save the checkpoint to.
         """
-        torch.save({
-            "epoch": epoch,
-            "model_state_dict": self.model.state_dict(),
-            "optimizer_state_dict": self.optimizer.state_dict(),
-            "loss": loss
-        }, filepath)
-    
+        torch.save(
+            {
+                "epoch": epoch,
+                "model_state_dict": self.model.module.state_dict(),
+                "optimizer_state_dict": self.optimizer.state_dict(),
+                "loss": loss,
+            },
+            filepath,
+        )
 
     def train_model(self, img_dir, annotations_file, batch_size, num_epochs, rank, word_size):
         """Train the model.
@@ -229,32 +277,62 @@ class Trainer:
         word_size : int
             The number of processes.
         """
-        logger = logging.getLogger(__name__)
-        train_loader, test_loader, train_sampler, test_sampler = self.setup_data_loaders(img_dir, annotations_file, batch_size, self.model, rank, word_size)
+        (
+            train_loader,
+            test_loader,
+            train_sampler,
+            test_sampler,
+            validation_loader,
+            validation_sampler,
+        ) = self.setup_data_loaders(img_dir, annotations_file, batch_size, rank, word_size)
 
-        model_name = f"{self.model.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}.pth"
+        model_name = f"{self.model.module.__class__.__name__}_{time.strftime('%Y%m%d%H%M%S')}.pth"
 
         best_loss = float("inf")
-        for epoch in trange(num_epochs, desc="Epoch"):
+        for epoch in range(num_epochs):
             train_sampler.set_epoch(epoch)
             test_sampler.set_epoch(epoch)
-            logger.info(f"Epoch {epoch+1}/{num_epochs}")
 
-            train_loss = self.train_epoch(train_loader)
-            logger.info(f"Training loss: {train_loss:.4f}")
+            train_loss = self.train_epoch(train_loader, epoch)
+            test_loss = self.evaluate(test_loader, desc="test", epoch=epoch)
 
-            test_loss = self.evaluate(test_loader, desc="Testing")
-            logger.info(f"Test loss: {test_loss:.4f}")
+            for i, param_group in enumerate(self.optimizer.param_groups):
+                self.writer.add_scalar(f"Learning_Rate/group_{i}", param_group["lr"], epoch)
 
             if rank == 0:
                 if test_loss < best_loss:
                     best_loss = test_loss
-                    checkpoint_name = f"{self.model.__class__.__name__}_best_checkpoint.pth"
+                    checkpoint_name = f"{model_name}_best_checkpoint.pth"
                     self.save_checkpoint(epoch, test_loss, f"/scratch/gpfs/RUSTOW/deskewing_models/{checkpoint_name}")
 
         if rank == 0:
-            torch.save(self.model.state_dict(), f"/scratch/gpfs/RUSTOW/deskewing_models/{model_name}")
-            logger.info("Model saved successfully.")
+            torch.save(self.model.module.state_dict(), f"/scratch/gpfs/RUSTOW/deskewing_models/{model_name}")
+        
+        # empty the cache to avoid memory leaks and OOM errors
+        torch.cuda.empty_cache()
+
+        validation_loss = self.evaluate(validation_loader, desc="validation")
+
+        self.writer.add_hparams(
+            {
+                "batch_size": batch_size,
+                "num_epochs": num_epochs,
+            },
+            {
+                "hparam/validation_loss": validation_loss,
+            },
+        )
+
+        self.writer.flush()
+        self.writer.close()
+
+    def log_system_metrics(self, prefix, global_step):
+        """Log system metrics to TensorBoard such as CPU and memory usage."""
+        cpu_percent = psutil.cpu_percent()
+        self.writer.add_scalar(f"{prefix}/CPU_Percent", cpu_percent, global_step)
+
+        memory = psutil.virtual_memory()
+        self.writer.add_scalar(f"{prefix}/Memory_Used", memory.used, global_step)
 
 
 def main(rank, word_size):
@@ -270,39 +348,28 @@ def main(rank, word_size):
     """
     img_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
     annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
+    log_dir = "/scratch/gpfs/eh0560/SkewNet/logs/tensorboard"
 
     torch.cuda.set_device(rank)
 
-    batch_size = 96
+    batch_size = 48
     learning_rate = 0.004
-    num_epochs = 100
+    num_epochs = 0
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dist.init_process_group("nccl", rank=rank, world_size=word_size)
-    model = RotationNetLargeNetworkTest().to(device)
-    model = DDP(model, device_ids=[rank], output_device=rank)
+    model = RotationNetSmallNetworkTest().to(device)
+    # model = DDP(model, device_ids=[rank], output_device=rank)
 
-    logfile_prefix = f"train_model_{model.__class__.__name__}"
-    setup_logging(logfile_prefix, log_level=logging.DEBUG, log_to_stdout=True)
-
-
-    logger = logging.getLogger(__name__)
-    logger.debug("Device: %s", device)
-    logger.debug("Batch size: %d", batch_size)
-    logger.debug("Learning rate: %.4f", learning_rate)
-    logger.debug("Number of epochs: %d", num_epochs)
-    logger.debug("Model: %s", model.__class__.__name__)
-    
-
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    trainer = Trainer(model, optimizer, device)
+    optimizer = optim.Adam(model.module.parameters(), lr=learning_rate)
+    trainer = Trainer(model, optimizer, device, log_dir)
     trainer.train_model(img_dir, annotations_file, batch_size, num_epochs, rank, word_size)
 
     dist.destroy_process_group()
 
 
 if __name__ == "__main__":
-    os.environ['MASTER_ADDR'] = 'localhost'
-    os.environ['MASTER_PORT'] = '12355'
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = "12354"
     word_size = torch.cuda.device_count()
     torch.multiprocessing.spawn(main, args=(word_size,), nprocs=word_size, join=True)
