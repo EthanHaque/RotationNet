@@ -69,7 +69,13 @@ def main():
         max_epochs=NUM_EPOCHS,
         logger=pl.loggers.TensorBoardLogger("logs/tensorboard", name="SkewNet"),
         callbacks=[
+            pl.callbacks.RichProgressBar(),
             pl.callbacks.LearningRateMonitor(logging_interval="step"),
+            pl.callbacks.ModelCheckpoint(
+                dirpath="/scratch/gpfs/RUSTOW/deskewing_models",
+                filename="SkewNet-{epoch:02d}-{val_loss:.2f}",
+                monitor="val_loss",
+            )
         ],
     )
 
