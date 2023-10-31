@@ -23,10 +23,10 @@ class RotatedImageDataset(Dataset):
         image = read_image(img_path).type(torch.FloatTensor) / 255.0
         angle = self.img_labels.iloc[idx, 1]
         label = torch.tensor([angle], dtype=torch.float32)
-        label = torch.deg2rad(label)
         if self.transform:
             image = self.transform(image)
         if self.target_transform:
             label = self.target_transform(label)
         
         return image, label
+
