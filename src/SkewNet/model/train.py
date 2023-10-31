@@ -1,15 +1,11 @@
 import os
-import time
 
-import psutil
+import lightning.pytorch as pl
 import torch
 import torch.optim as optim
-from torch.utils.data import DataLoader
 
 from SkewNet.model.rotated_images_dataset import RotatedImagesModule
 from SkewNet.model.rotation_net import RotationNetSmallNetworkTest
-
-import lightning.pytorch as pl
 
 
 class LightningRotationNet(pl.LightningModule):
@@ -26,21 +22,21 @@ class LightningRotationNet(pl.LightningModule):
         loss = self.mse(y_hat, y)
         self.log("train_loss", loss, sync_dist=True)
         return loss
-    
+
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
         self.log("val_loss", loss, sync_dist=True)
         return loss
-    
+
     def test_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
         self.log("test_loss", loss, sync_dist=True)
         return loss
-    
+
     def predict_step(self, batch, batch_idx):
         x, y = batch
         pred = self.model(x)
@@ -50,6 +46,7 @@ class LightningRotationNet(pl.LightningModule):
         optimizer = optim.Adam(self.model.parameters(), lr=0.004)
         scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=1, gamma=0.1)
         return [optimizer], [scheduler]
+
 
 def main():
     BATCH_SIZE = 48
@@ -72,7 +69,7 @@ def main():
         logger=pl.loggers.TensorBoardLogger("logs/tensorboard", name="SkewNet"),
         callbacks=[
             pl.callbacks.LearningRateMonitor(logging_interval="step"),
-        ]
+        ],
     )
 
     img_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
