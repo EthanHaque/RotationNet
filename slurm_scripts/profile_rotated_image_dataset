@@ -1,0 +1,17 @@
+#!/bin/bash
+#SBATCH --job=profile_roatated_image_dataset
+#SBATCH --output=logs/profile_roatated_image_dataset%j.out
+#SBATCH --error=logs/profile_roatated_image_dataset%j.err
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=20
+#SBATCH --mem=96G
+#SBATCH --time=1:00:00
+#SBATCH --mail-type=ALL
+#SBATCH --mail-user=eh0560@princeton.edu
+
+module purge
+module load anaconda3/2023.3
+conda activate torch_env
+
+python /scratch/gpfs/eh0560/SkewNet/test/SkewNet/model/profile_rotated_image_dataset.py
