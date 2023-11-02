@@ -1,3 +1,4 @@
+import argparse
 import os
 
 import pytorch_lightning as pl
@@ -119,22 +120,38 @@ def setup_data_loaders(annotations_file, img_dir, batch_size, num_workers, prefe
     )
     return train_loader, val_loader, test_loader
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Train a model to correct image rotation.")
+    parser.add_argument("--batch_size", "-b", type=int, default=48, help="input batch size")
+    parser.add_argument("--num_epochs", "-e", type=int, default=25, help="number of epochs to train for")
+    parser.add_argument("--num_workers", "-w", type=int, default=12, help="number of data loading workers")
+    parser.add_argument("--gpus", "-g", type=int, default=2, help="number of GPUs to allocate per node")
+    parser.add_argument("--num_nodes", "-n", type=int, default=1, help="number of nodes to use")
+    parser.add_argument("--img_dir", type=str, required=True, help="directory with images")
+    parser.add_argument("--annotations_file", type=str, required=True, help="annotations CSV file")
+    parser.add_argument("--model", "-m", type=str, required=True, help="model to train")
+    return parser.parse_args()
 
 
 def main():
-    BATCH_SIZE = 48
+    args = parse_args()
+
     LEARNING_RATE = 0.005
     WEIGHT_DECAY = 0
-    NUM_EPOCHS = 25
-    NUM_WORKERS = 12
-    NUM_NODES = 1
-    ALLOCATED_GPUS_PER_NODE = 2
+    BATCH_SIZE = args.batch_size
+    NUM_EPOCHS = args.num_epochs
+    NUM_WORKERS = args.num_workers
+    ALLOCATED_GPUS_PER_NODE = args.gpus
+    NUM_NODES = args.num_nodes
+    IMG_DIR = args.img_dir
+    ANNOTATIONS_FILE = args.annotations_file
+    MODEL = args.model
     
 
     # TODO: test the impact of using float16 instead of float32
     torch.set_float32_matmul_precision("medium")
 
-    model = ModelRegistry.get_model("HugeTestNetwork")
+    model = ModelRegistry.get_model(MODEL)
     model = LightningRotationNet(model, LEARNING_RATE, WEIGHT_DECAY)
 
     train_transform = transforms.Compose([transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),])
@@ -147,24 +164,22 @@ def main():
         devices=ALLOCATED_GPUS_PER_NODE,
         num_nodes=NUM_NODES,
         max_epochs=NUM_EPOCHS,
-        logger=pl.loggers.TensorBoardLogger("logs/tensorboard", name="SkewNet"),
+        logger=pl.loggers.TensorBoardLogger("logs/tensorboard", name=f"SkewNet-{MODEL}"),
         callbacks=[
             BetterProgressBar(),
             pl.callbacks.LearningRateMonitor(logging_interval="step"),
             pl.callbacks.ModelCheckpoint(
                 dirpath="/scratch/gpfs/RUSTOW/deskewing_models",
-                filename="SkewNet-{epoch:03d}-{val_loss:.5f}",
+                filename=f"SkewNet-{MODEL}-" + "{epoch:02d}-{val_loss:.2f}",
                 monitor="val_loss",
             )
         ],
     )
 
-    img_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
-    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
     
     train_loader, val_loader, test_loader = setup_data_loaders(
-        annotations_file,
-        img_dir,
+        ANNOTATIONS_FILE,
+        IMG_DIR,
         BATCH_SIZE,
         NUM_WORKERS,
         prefetch_factor=1,
