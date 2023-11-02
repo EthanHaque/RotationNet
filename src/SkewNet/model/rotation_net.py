@@ -27,14 +27,14 @@ class RotationNetMobileNetV3Backbone(nn.Module):
     def __init__(self):
         super(RotationNetMobileNetV3Backbone, self).__init__()
         self.base_model = mobilenet_v3_large(weights="DEFAULT", width_mult=1.0, reduced_tail=False, dilated=False)
-        self.dropout = nn.Dropout(0.2)
+        self.base_model.classifier = nn.Identity()
         self.fc1 = nn.Linear(1000, 1)
 
 
     def forward(self, x):
         x = self.base_model(x)
-        x = self.dropout(x)
         x = self.fc1(x)
+
         return x
     
 
