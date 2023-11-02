@@ -135,12 +135,6 @@ class RotationNetHugeNetworkTest(nn.Module):
         self.conv8 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
         self.bn8 = nn.BatchNorm2d(512)
 
-        self.conv9 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
-        self.bn9 = nn.BatchNorm2d(512)
-
-        self.conv10 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
-        self.bn10 = nn.BatchNorm2d(512)
-
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
         self.global_avg_pool = nn.AdaptiveAvgPool2d((1, 1))
 
@@ -160,8 +154,6 @@ class RotationNetHugeNetworkTest(nn.Module):
         x = self.pool(self.relu(self.bn6(self.conv6(x))))
         x = self.pool(self.relu(self.bn7(self.conv7(x))))
         x = self.pool(self.relu(self.bn8(self.conv8(x))))
-        x = self.pool(self.relu(self.bn9(self.conv9(x))))
-        x = self.pool(self.relu(self.bn10(self.conv10(x))))
 
         x = self.global_avg_pool(x)
         x = x.view(-1, 512)
