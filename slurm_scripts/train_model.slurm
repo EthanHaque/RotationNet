@@ -4,15 +4,15 @@
 #SBATCH --error=logs/train_model%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=48
-#SBATCH --mem=168G
-#SBATCH --time=05:00:00
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=128G
+#SBATCH --time=10:00:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=eh0560@princeton.edu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:2
 
 module purge
-module load anaconda3/2023.3
+module load anaconda3/2023.9
 conda activate torch_env
 
 python /scratch/gpfs/eh0560/SkewNet/src/SkewNet/model/train.py
