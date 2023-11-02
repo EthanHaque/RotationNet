@@ -15,17 +15,21 @@ from torchvision.utils import make_grid
 class LightningRotationNet(pl.LightningModule):
     def __init__(self, model, learning_rate, weight_decay, *args, **kwargs):
         super().__init__()
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model"])
         self.model = model
 
-    def mse(self, y_pred, y_true):
-        return torch.mean((y_pred - y_true) ** 2)
+    def mse(self, y_pred, y_true, scale=1):
+        return torch.mean((y_pred - y_true) ** 2) * scale
+    
+    def mae(self, y_pred, y_true, scale=1):
+        return torch.mean(torch.abs(y_pred - y_true)) * scale
 
     def training_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
         self.log("train_loss", loss, sync_dist=True, prog_bar=True)
+        self.log("train_mae", self.mae(y_hat, y), sync_dist=True, prog_bar=True)
         return loss
 
     def _make_grid(self, x, y, y_hat):
@@ -49,11 +53,7 @@ class LightningRotationNet(pl.LightningModule):
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
         self.log("val_loss", loss, sync_dist=True, prog_bar=True)
-            
-        if batch_idx % 100 == 0:
-            grid = self._make_grid(x, y, y_hat)
-            self.logger.experiment.add_images("images", grid.unsqueeze(0), self.global_step)
-
+        self.log("val_mae", self.mae(y_hat, y), sync_dist=True, prog_bar=True)
         return loss
 
     def test_step(self, batch, batch_idx):
@@ -61,6 +61,7 @@ class LightningRotationNet(pl.LightningModule):
         y_hat = self.model(x)
         loss = self.mse(y_hat, y)
         self.log("test_loss", loss, sync_dist=True, prog_bar=True)
+        self.log("test_mae", self.mae(y_hat, y), sync_dist=True, prog_bar=True)
         return loss
 
     def predict_step(self, batch, batch_idx):
@@ -122,18 +123,18 @@ def setup_data_loaders(annotations_file, img_dir, batch_size, num_workers, prefe
 
 def main():
     BATCH_SIZE = 48
-    LEARNING_RATE = BATCH_SIZE * 0.0005
+    LEARNING_RATE = 0.005
     WEIGHT_DECAY = 0
-    NUM_EPOCHS = 10
-    NUM_WORKERS = int(os.environ["SLURM_CPUS_PER_TASK"])
-    NUM_NODES = int(os.environ["SLURM_NNODES"])
-    ALLOCATED_GPUS_PER_NODE = int(os.environ["SLURM_GPUS_ON_NODE"])
+    NUM_EPOCHS = 25
+    NUM_WORKERS = 12
+    NUM_NODES = 1
+    ALLOCATED_GPUS_PER_NODE = 2
     
 
     # TODO: test the impact of using float16 instead of float32
     torch.set_float32_matmul_precision("medium")
 
-    model = ModelRegistry.get_model("LargeTestNetwork")
+    model = ModelRegistry.get_model("HugeTestNetwork")
     model = LightningRotationNet(model, LEARNING_RATE, WEIGHT_DECAY)
 
     train_transform = transforms.Compose([transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2),])
