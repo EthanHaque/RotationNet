@@ -4,6 +4,25 @@ from torchvision.models import mobilenet_v3_large
 import torchvision.transforms as transforms
 
 
+class ModelRegistry:
+    registry = {}
+
+    @classmethod
+    def register(cls, name):
+        def inner_wrapper(wrapped_class):
+            cls.registry[name] = wrapped_class
+            return wrapped_class
+        return inner_wrapper
+
+    @classmethod
+    def get_model(cls, name):
+        if name in cls.registry:
+            return cls.registry[name]()
+        else:
+            raise ValueError(f"Model {name} not found in registry")
+
+
+@ModelRegistry.register("MobileNetV3Backbone")
 class RotationNetMobileNetV3Backbone(nn.Module):
     def __init__(self):
         super(RotationNetMobileNetV3Backbone, self).__init__()
@@ -19,6 +38,7 @@ class RotationNetMobileNetV3Backbone(nn.Module):
         return x
     
 
+@ModelRegistry.register("SmallTestNetwork")
 class RotationNetSmallNetworkTest(nn.Module):
     def __init__(self):
         super(RotationNetSmallNetworkTest, self).__init__()
@@ -43,7 +63,7 @@ class RotationNetSmallNetworkTest(nn.Module):
 
         return x
 
-
+@ModelRegistry.register("LargeTestNetwork")
 class RotationNetLargeNetworkTest(nn.Module):
     def __init__(self):
         super(RotationNetLargeNetworkTest, self).__init__()
