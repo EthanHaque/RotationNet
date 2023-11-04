@@ -52,7 +52,7 @@ class RotationNetMobileNetV3Backbone(nn.Module):
         super(RotationNetMobileNetV3Backbone, self).__init__()
         self.base_model = mobilenet_v3_large(weights="DEFAULT", width_mult=1.0, reduced_tail=False, dilated=False)
         self.base_model.classifier = nn.Identity()
-        self.fc1 = nn.Linear(1000, 1)
+        self.fc1 = nn.Linear(960, 1)
 
 
     def forward(self, x):
