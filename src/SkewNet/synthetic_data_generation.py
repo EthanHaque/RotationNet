@@ -225,8 +225,9 @@ def main():
 
     annotations = [annotation for annotation in annotations if annotation is not None]
     annotations_df = pd.DataFrame(annotations)
-    train_df, val_df = train_test_split(annotations_df, test_size=0.3, random_state=42)
-    val_df, test_df = train_test_split(val_df, test_size=1/3, random_state=42) 
+    # train_test_spit(annotations_df, test_size=0.3, train_size=0.7)
+    train_df, test_df = train_test_split(annotations_df, test_size=0.3, train_size=0.7)
+    val_df, test_df = train_test_split(test_df, test_size=2/3, train_size=1/3)
 
     train_df = train_df.assign(split="train")
     val_df = val_df.assign(split="val")
