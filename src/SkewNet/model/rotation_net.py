@@ -21,7 +21,31 @@ class ModelRegistry:
         else:
             raise ValueError(f"Model {name} not found in registry")
 
+    @classmethod
+    def get_model_names(cls):
+        return list(cls.registry.keys())
 
+    def __dict__(self):
+        return self.registry
+    
+    def __len__(self):
+        return len(self.registry)
+    
+    def __getitem__(self, key):
+        return self.registry[key]
+    
+    def __contains__(self, key):
+        return key in self.registry
+    
+    def __iter__(self):
+        return iter(self.registry)
+    
+    def __repr__(self):
+        return repr(self.registry)
+    
+    def __str__(self):
+        return str(self.registry)
+    
 @ModelRegistry.register("MobileNetV3Backbone")
 class RotationNetMobileNetV3Backbone(nn.Module):
     def __init__(self):
