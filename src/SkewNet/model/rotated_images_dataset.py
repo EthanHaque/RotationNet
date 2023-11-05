@@ -1,13 +1,12 @@
 import os
+from dataclasses import dataclass
 
 import pandas as pd
-import pytorch_lightning as pl
 import torch
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader, Dataset
 from torchvision.io import read_image
 
-from dataclasses import dataclass
 
 @dataclass
 class DataConfig:

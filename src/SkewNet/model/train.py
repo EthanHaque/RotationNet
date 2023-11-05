@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import torch
 import torch.profiler
-from torch.distributed import destroy_process_group, init_process_group
+from torch.distributed import destroy_process_group, init_process_group, ReduceOp, all_reduce
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
@@ -137,9 +137,7 @@ class Trainer:
         torch.save(snapshot, snapshot_path)
 
     def _training_step(self, batch, batch_idx):
-        with torch.set_grad_enabled(True), torch.amp.autocast(
-            device_type="cuda", dtype=torch.float16, enabled=self.config.use_automatic_mixed_precision
-        ):
+        with torch.set_grad_enabled(True), torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=self.config.use_automatic_mixed_precision):
             x, y = batch
             x, y = x.to(self.local_rank), y.to(self.local_rank)
             y_hat = self.model(x)
@@ -163,13 +161,16 @@ class Trainer:
     def _train(self, epoch, data_loader):
         data_loader.sampler.set_epoch(epoch)
         self.model.train()
-        running_loss = 0.0
+        running_loss = torch.zeros(2).to(self.local_rank)
         for idx, batch in enumerate(data_loader):
             batch_loss = self._training_step(batch, idx) 
-            running_loss += batch_loss
+            running_loss[0] += batch_loss.item() * len(batch[0])
+            running_loss[1] += len(batch[0])
 
-        average_loss = running_loss / len(data_loader)
-        print(f"GPU {self.global_rank} EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f}")
+        all_reduce(running_loss, op=ReduceOp.SUM)
+        average_loss = (running_loss[0] / running_loss[1]).item()
+        if self.global_rank == 0:
+            print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f}")
         return average_loss
 
     def _eval_step(self, batch, batch_idx):
@@ -184,13 +185,16 @@ class Trainer:
     def _validate(self, epoch, data_loader):
         data_loader.sampler.set_epoch(epoch)
         self.model.eval()
-        running_loss = 0.0
+        running_loss = torch.zeros(2).to(self.local_rank) 
         for idx, batch in enumerate(data_loader):
             batch_loss = self._eval_step(batch, idx)
-            running_loss += batch_loss
-
-        average_loss = running_loss / len(data_loader)
-        print(f"GPU {self.global_rank} EPOCH {self.epochs_run} | Val Loss: {average_loss:.5f}")
+            running_loss[0] += batch_loss.item() * len(batch[0])
+            running_loss[1] += len(batch[0])
+        
+        all_reduce(running_loss, op=ReduceOp.SUM)
+        average_loss = (running_loss[0] / running_loss[1]).item()
+        if self.global_rank == 0:
+            print(f"EPOCH {self.epochs_run} | Val Loss: {average_loss:.5f}")
         return average_loss
 
     def fit(self):
