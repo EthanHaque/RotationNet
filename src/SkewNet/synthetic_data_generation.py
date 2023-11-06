@@ -8,7 +8,7 @@ import cv2
 import numpy as np
 from utils import image_utils, logging_utils
 import pandas as pd
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 
 
 def compose_document_onto_background(document_image, background_image, output_images_dir):
@@ -187,6 +187,51 @@ def process_image(image_path, background_path, output_images_dir, index):
     annotation["background_image_path"] = background_path
     return annotation
 
+def split_data(df, train_size=0.7, test_size=0.3, val_size=1/3):
+    groups = df["document_image_path"].astype("category").cat.codes
+    gss = GroupShuffleSplit(n_splits=1, train_size=train_size, test_size=test_size)
+    train_idx, test_val_idx = next(gss.split(df, groups=groups))
+
+    train_df = df.iloc[train_idx].assign(split="train")
+    test_val_df = df.iloc[test_val_idx]
+
+    relative_test_size = 1 - val_size
+    gss = GroupShuffleSplit(n_splits=1, train_size=relative_test_size, test_size=val_size)
+    test_idx, val_idx = next(gss.split(test_val_df, groups=groups[test_val_idx]))
+
+    test_df = test_val_df.iloc[test_idx].assign(split="test")
+    val_df = test_val_df.iloc[val_idx].assign(split="val")
+
+    final_df = pd.concat([train_df, test_df, val_df])
+
+    return final_df
+
+
+def verify_invariants(df, expected_train_ratio, expected_test_ratio, expected_val_ratio, epsilon=0.05):
+    # Check the ratios
+    actual_train_ratio = len(df[df['split'] == 'train']) / len(df)
+    actual_test_ratio = len(df[df['split'] == 'test']) / len(df)
+    actual_val_ratio = len(df[df['split'] == 'val']) / len(df)
+
+    ratios_within_tolerance = (
+        abs(actual_train_ratio - expected_train_ratio) <= epsilon and
+        abs(actual_test_ratio - expected_test_ratio) <= epsilon and
+        abs(actual_val_ratio - expected_val_ratio) <= epsilon
+    )
+    
+    if not ratios_within_tolerance:
+        print("Ratios are not within the expected tolerance.")
+        return False
+    
+    # Check for consistent splits for the same document_image_path
+    split_consistency = df.groupby('document_image_path')['split'].nunique().max() == 1
+    
+    if not split_consistency:
+        print("There are document_image_path values with inconsistent splits.")
+        return False
+    
+    return True
+
 
 def main():
     """
@@ -242,14 +287,14 @@ def main():
 
     annotations = [annotation for annotation in annotations if annotation is not None]
     annotations_df = pd.DataFrame(annotations)
-    train_df, test_df = train_test_split(annotations_df, test_size=0.3, train_size=0.7)
-    val_df, test_df = train_test_split(test_df, test_size=2/3, train_size=1/3)
 
-    train_df = train_df.assign(split="train")
-    val_df = val_df.assign(split="val")
-    test_df = test_df.assign(split="test")
-
-    final_df = pd.concat([train_df, test_df, val_df])
+    final_df = split_data(annotations_df)
+    data_integrity = verify_invariants(final_df, 0.7, 0.2, 0.1)
+    if not data_integrity:
+        print("Data integrity check failed. Exiting.")
+        return
+    else:
+        print("Data integrity check passed.")
 
     final_df.to_csv(annotations_file, index=False)
     logger.info(f"Saved annotations to {annotations_file}")
