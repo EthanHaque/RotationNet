@@ -163,7 +163,7 @@ def superimpose_image_on_background(image, background, mask, x, y):
     background : numpy.ndarray
         The background image.
     mask : numpy.ndarray
-        The mask for the image with the same shape as the image.
+        The mask for the image with the same width and height as the image.
     x : int
         The x coordinate of the top left corner of the image.
     y : int
@@ -185,12 +185,11 @@ def superimpose_image_on_background(image, background, mask, x, y):
 
     if mask is not None:
         region_of_interest = background[y:y + image_height, x:x + image_width]
-        image_and_mask = cv2.bitwise_and(image, mask)
-        not_mask = cv2.bitwise_not(mask)
-        roi_and_not_mask = cv2.bitwise_and(region_of_interest, not_mask)
-        blended_image = image_and_mask + roi_and_not_mask
-        # blended_image = cv2.bitwise_and(image, mask) + cv2.bitwise_and(region_of_interest, cv2.bitwise_not(mask))
-        background[y:y + image_height, x:x + image_width] = blended_image
+        alpha_s = mask / 255.0
+        alpha_l = 1.0 - alpha_s
+
+        for c in range(0, 3):
+            region_of_interest[:, :, c] = (alpha_s * image[:, :, c] + alpha_l * region_of_interest[:, :, c])
     else:
         background[y:y + image_height, x:x + image_width] = image
 

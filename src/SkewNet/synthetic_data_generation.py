@@ -30,7 +30,10 @@ def compose_document_onto_background(document_image, background_image, output_im
     annotation : dict
         Dictionary containing the annotation information.
     """
+    #TODO: messy and needs refactoring
     logger = logging.getLogger(__name__)
+    document_angle_range = (0.0, 360.0)
+    background_angle_range = (0.0, 360.0)
 
     # randomly scaling the document image and changing aspect ratio
     random_x_scale = np.random.uniform(0.75, 1.1)
@@ -40,8 +43,8 @@ def compose_document_onto_background(document_image, background_image, output_im
     initial_backgound_height, initial_backgound_width = background_image.shape[:2]
     initial_document_height, initial_document_width = document_image.shape[:2]
 
-    document_angle = np.random.uniform(0.0, 30.0) * np.pi / 180.0
-    background_angle = np.random.uniform(0.0, 360.0) * np.pi / 180.0
+    document_angle = np.random.uniform(*document_angle_range) * np.pi / 180.0
+    background_angle = np.random.uniform(*background_angle_range) * np.pi / 180.0
     target_background_width = 900
     target_background_height = 1200
 
@@ -53,9 +56,10 @@ def compose_document_onto_background(document_image, background_image, output_im
     smallest_target_size = min(target_background_width, target_background_height)
     scale = scale_down_factor * smallest_target_size / largest_document_side
 
+    # alpha masking
     document_image = cv2.resize(document_image, (0, 0), fx=scale, fy=scale)
-    mask = np.ones(document_image.shape, dtype=np.uint8) * 255
-
+    mask = document_image[:, :, 3]
+  
     document_image = image_utils.rotate_image(document_image, document_angle)
     mask = image_utils.rotate_image(mask, document_angle)
 
@@ -157,6 +161,17 @@ def process_image(image_path, background_path, output_images_dir, index):
     document_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
     if (document_image.shape[2]) == 3:
         document_image = cv2.cvtColor(document_image, cv2.COLOR_BGR2BGRA)
+        border_size = 3
+        blur_radius = 5
+        mask = np.ones(document_image.shape[:2], dtype=np.uint8) * 255
+        mask[:border_size, :] = 0
+        mask[-border_size:, :] = 0
+        mask[:, :border_size] = 0
+        mask[:, -border_size:] = 0
+
+        fethered_mask = cv2.GaussianBlur(mask, (blur_radius, blur_radius), 0)
+        document_image[:, :, 3] = fethered_mask
+
 
     background_image = cv2.imread(background_path, cv2.IMREAD_UNCHANGED)
     if (background_image.shape[2]) == 3:
@@ -168,6 +183,8 @@ def process_image(image_path, background_path, output_images_dir, index):
         return
 
     annotation = compose_document_onto_background(document_image, background_image, output_images_dir)
+    annotation["document_image_path"] = image_path
+    annotation["background_image_path"] = background_path
     return annotation
 
 
@@ -175,10 +192,10 @@ def main():
     """
     Main function to test the synthetic data generation.
     """
-    logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=False) 
+    logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=True) 
     logger = logging.getLogger(__name__)
 
-    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
+    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles_full_data.csv"
 
     cudl_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images")
     doc_lay_net_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images")
@@ -188,17 +205,17 @@ def main():
     pexels_background_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures")
     # TODO: add images with solid colors as backgrounds and simple textures
 
-    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
+    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_full"
 
     os.makedirs(output_images_dir, exist_ok=True)
 
     document_images = []
 
-    # for i in range(10):
-    #     document_images.extend(cudl_document_images)
+    for _ in range(10):
+        document_images.extend(cudl_document_images)
     document_images.extend(doc_lay_net_document_images)
     document_images.extend(publaynet_document_images)
-    # document_images = [image for image in document_images for _ in range(5)]
+
 
     background_images = []
     background_images.extend(texture_ninja_background_images)
@@ -225,7 +242,6 @@ def main():
 
     annotations = [annotation for annotation in annotations if annotation is not None]
     annotations_df = pd.DataFrame(annotations)
-    # train_test_spit(annotations_df, test_size=0.3, train_size=0.7)
     train_df, test_df = train_test_split(annotations_df, test_size=0.3, train_size=0.7)
     val_df, test_df = train_test_split(test_df, test_size=2/3, train_size=1/3)
 
@@ -238,6 +254,7 @@ def main():
     final_df.to_csv(annotations_file, index=False)
     logger.info(f"Saved annotations to {annotations_file}")
 
+    ## Sequential processing test
     # for i in range(len(document_images)):
     #     process_image(document_images[i], random_background_images[i], output_images_dir, i)
 
