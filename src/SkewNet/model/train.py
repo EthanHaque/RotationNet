@@ -103,18 +103,21 @@ class Trainer:
 
         if self.config.profile:
             group = f"{self.model.module.__class__.__name__}_{self.runID}"
-            self.run = wandb.init(project="SkewNet", 
-                                  entity="ethanhaque", 
-                                  config=self.config, 
-                                  dir=self.config.logdir, 
-                                  group=group)
+            self.run = wandb.init(
+                project="SkewNet", entity="ethanhaque", config=self.config, dir=self.config.logdir, group=group
+            )
             # self.run.enable_profiling()
             self.run.watch(self.model)
 
         print(f"GPU {self.global_rank} | Initialized trainer")
         if self.global_rank == 0:
-            print(f"ID: {self.runID} | # GPUs: {torch.cuda.device_count()} | # train samples: {len(self.train_dataset)}")
-            
+            print(f"ID {self.runID}")
+            print(f"GPUs {torch.cuda.device_count()}")
+            print(f"Train samples {len(self.train_dataset)}")
+            if self.val_loader:
+                print(f"Val samples {len(self.val_loader.dataset)}")
+            print(f"Batch size {self.config.batch_size}")
+            print(f"Epochs {self.config.max_epochs}")
 
     def _prepare_distributed_dataloader(self, dataset):
         return DataLoader(
@@ -154,12 +157,19 @@ class Trainer:
         )
         torch.save(snapshot, snapshot_path)
 
+    def _calculate_metrics(self, y_pred, y_true):
+        loss = self.criterion(y_pred, y_true)
+        mae = mae_loss(y_pred, y_true)
+        return loss, mae
+
     def _training_step(self, batch, batch_idx):
-        with torch.set_grad_enabled(True), torch.amp.autocast(device_type="cuda", dtype=torch.float16, enabled=self.config.use_automatic_mixed_precision):
+        with torch.set_grad_enabled(True), torch.amp.autocast(
+            device_type="cuda", dtype=torch.float16, enabled=self.config.use_automatic_mixed_precision
+        ):
             x, y = batch
             x, y = x.to(self.local_rank), y.to(self.local_rank)
             y_hat = self.model(x)
-            loss = self.criterion(y_hat, y)
+            loss, mae = self._calculate_metrics(y_hat, y)
             self.optimizer.zero_grad(set_to_none=True)
             if self.config.use_automatic_mixed_precision:
                 self.scaler.scale(loss).backward()
@@ -172,56 +182,65 @@ class Trainer:
                 self.optimizer.step()
 
             self.scheduler.step()
-            print(f"GPU {self.global_rank} EPOCH {self.epochs_run} | Batch {batch_idx} | Train Loss: {loss:.5f}")
+            print(
+                f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Train Loss: {loss:.5f} | Train MAE: {mae:.5f}"
+            )
 
-        return loss
+        return loss, mae
 
     def _train(self, epoch, data_loader):
         data_loader.sampler.set_epoch(epoch)
         self.model.train()
-        running_loss = torch.zeros(2).to(self.local_rank)
+        running_metrics = torch.zeros(3).to(self.local_rank)
         for idx, batch in enumerate(data_loader):
-            batch_loss = self._training_step(batch, idx) 
-            running_loss[0] += batch_loss.item() * len(batch[0])
-            running_loss[1] += len(batch[0])
+            batch_loss, mae = self._training_step(batch, idx)
+            running_metrics[0] += batch_loss.item() * len(batch[0])
+            running_metrics[1] += mae.item() * len(batch[0])
+            running_metrics[2] += len(batch[0])
 
-        all_reduce(running_loss, op=ReduceOp.SUM)
-        average_loss = (running_loss[0] / running_loss[1]).item()
+        all_reduce(running_metrics, op=ReduceOp.SUM)
+        average_loss = (running_metrics[0] / running_metrics[2]).item()
+        average_mae = (running_metrics[0] / running_metrics[2]).item()
         if self.global_rank == 0:
-            print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f}")
+            print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f} | Train MAE: {average_mae:.5f}")
 
-        return average_loss
+        return average_loss, average_mae
 
     def _eval_step(self, batch, batch_idx):
         with torch.set_grad_enabled(False):
             x, y = batch
             x, y = x.to(self.local_rank), y.to(self.local_rank)
             y_hat = self.model(x)
-            loss = self.criterion(y_hat, y)
-            print(f"GPU {self.global_rank} EPOCH {self.epochs_run} | Batch {batch_idx} | Val Loss: {loss:.5f}")
-            return loss
+            loss, mae = self._calculate_metrics(y_hat, y)
+            print(
+                f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Val Loss: {loss:.5f} | Val MAE: {mae:.5f}"
+            )
+            return loss, mae
 
     def _validate(self, epoch, data_loader):
         data_loader.sampler.set_epoch(epoch)
         self.model.eval()
-        running_loss = torch.zeros(2).to(self.local_rank) 
+        running_metrics = torch.zeros(3).to(self.local_rank)
         for idx, batch in enumerate(data_loader):
-            batch_loss = self._eval_step(batch, idx)
-            running_loss[0] += batch_loss.item() * len(batch[0])
-            running_loss[1] += len(batch[0])
-        
-        all_reduce(running_loss, op=ReduceOp.SUM)
-        average_loss = (running_loss[0] / running_loss[1]).item()
+            batch_loss, mae = self._eval_step(batch, idx)
+            running_metrics[0] += batch_loss.item() * len(batch[0])
+            running_metrics[1] += mae.item() * len(batch[0])
+            running_metrics[2] += len(batch[0])
+
+        all_reduce(running_metrics, op=ReduceOp.SUM)
+        average_loss = (running_metrics[0] / running_metrics[2]).item()
+        average_mae = (running_metrics[0] / running_metrics[2]).item()
         if self.global_rank == 0:
-            print(f"EPOCH {self.epochs_run} | Val Loss: {average_loss:.5f}")
-        return average_loss
+            print(f"EPOCH {self.epochs_run} | Val Loss: {average_loss:.5f} | Val MAE: {average_mae:.5f}")
+
+        return average_loss, average_mae
 
     def fit(self):
         for epoch in range(self.epochs_run, self.config.max_epochs):
-            train_loss = self._train(epoch, self.train_loader)
+            train_loss, train_mae = self._train(epoch, self.train_loader)
             val_loss = None
             if self.val_loader:
-                val_loss = self._validate(epoch, self.val_loader)
+                val_loss, val_mae = self._validate(epoch, self.val_loader)
                 # TODO: make sure everything is communicated properly. All reduce?
                 # TODO: add save snapshot for rank 0 only and for periodic snapshots
                 # TODO: add early stopping
@@ -232,7 +251,14 @@ class Trainer:
             self.epochs_run += 1
 
             if self.config.profile:
-                self.run.log({"train_loss": train_loss, "val_loss": val_loss})
+                metrics = {
+                    "train_loss": train_loss,
+                    "val_loss": val_loss,
+                    "train_mae": train_mae,
+                    "val_mae": val_mae,
+                    "epoch": epoch,
+                }
+                self.run.log(metrics)
 
         if self.config.profile:
             self.run.finish()
