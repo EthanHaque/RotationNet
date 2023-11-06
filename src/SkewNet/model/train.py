@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 
 import torch
-import torch.profiler
+import wandb
 from torch.distributed import destroy_process_group, init_process_group, ReduceOp, all_reduce
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
@@ -29,6 +29,8 @@ class TrainConfig:
     snapshot_interval: int = 1
     use_automatic_mixed_precision: bool = False
     grad_norm_clip: float = 1.0
+    profile: bool = False
+    logdir: str = "/scratch/gpfs/eh0560/SkewNet/logs"
 
 
 @dataclass
@@ -54,7 +56,7 @@ class SchedulerConfig:
 
 
 class Trainer:
-    def __init__(self, trainer_config, model, criterion, optimizer, scheduler, train_dataset, val_dataset=None):
+    def __init__(self, trainer_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset=None):
         if trainer_config.evaluate and not val_dataset:
             raise ValueError("Validation dataset must be provided when in evaluation mode")
         if not trainer_config.evaluate and val_dataset:
@@ -63,6 +65,7 @@ class Trainer:
             raise ValueError("No snapshot directory provided.")
 
         self.config = trainer_config
+        self.runID = runID
 
         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
         self.global_rank = int(os.environ.get("RANK", 0))
@@ -97,6 +100,21 @@ class Trainer:
             self._load_snapshot(self.config.snapshot_path)
 
         self.model = DDP(self.model, device_ids=[self.local_rank])
+
+        if self.config.profile:
+            group = f"{self.model.module.__class__.__name__}_{self.runID}"
+            self.run = wandb.init(project="SkewNet", 
+                                  entity="ethanhaque", 
+                                  config=self.config, 
+                                  dir=self.config.logdir, 
+                                  group=group)
+            # self.run.enable_profiling()
+            self.run.watch(self.model)
+
+        print(f"GPU {self.global_rank} | Initialized trainer")
+        if self.global_rank == 0:
+            print(f"ID: {self.runID} | # GPUs: {torch.cuda.device_count()} | # train samples: {len(self.train_dataset)}")
+            
 
     def _prepare_distributed_dataloader(self, dataset):
         return DataLoader(
@@ -171,6 +189,7 @@ class Trainer:
         average_loss = (running_loss[0] / running_loss[1]).item()
         if self.global_rank == 0:
             print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f}")
+
         return average_loss
 
     def _eval_step(self, batch, batch_idx):
@@ -199,7 +218,8 @@ class Trainer:
 
     def fit(self):
         for epoch in range(self.epochs_run, self.config.max_epochs):
-            self._train(epoch, self.train_loader)
+            train_loss = self._train(epoch, self.train_loader)
+            val_loss = None
             if self.val_loader:
                 val_loss = self._validate(epoch, self.val_loader)
                 # TODO: make sure everything is communicated properly. All reduce?
@@ -210,6 +230,12 @@ class Trainer:
                     self.best_epoch = epoch
                     self._save_snapshot(self.config.snapshot_path)
             self.epochs_run += 1
+
+            if self.config.profile:
+                self.run.log({"train_loss": train_loss, "val_loss": val_loss})
+
+        if self.config.profile:
+            self.run.finish()
 
 
 def mse_loss(y_pred, y_true, scale=1):
@@ -249,6 +275,7 @@ def setup_data_loaders(data_config, transform=None, target_transform=None):
 
 def parse_args():
     parser = argparse.ArgumentParser(description="PyTorch SkewNet Training")
+    parser.add_argument("runID", metavar="RUNID", help="wandb uuid")
     parser.add_argument("config", metavar="FILE", help="path to config file")
     return parser.parse_args()
 
@@ -282,13 +309,15 @@ def main():
     with open(args.config, "r") as f:
         config = json.load(f)
 
+    runID = args.runID
+
     train_config, optimizer_config, scheduler_config, data_config = setup_config(config)
 
     model, criterion, optimizer, scheduler, train_dataset, val_dataset = get_train_objects(
         config["model"], optimizer_config, scheduler_config, data_config
     )
 
-    trainer = Trainer(train_config, model, criterion, optimizer, scheduler, train_dataset, val_dataset)
+    trainer = Trainer(train_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset)
     trainer.fit()
 
     destroy_process_group()

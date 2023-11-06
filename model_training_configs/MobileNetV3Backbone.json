@@ -2,7 +2,7 @@
     "data_config": {
         "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv",
         "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
-        "truncate": 1.0
+        "truncate": 0.10
     },
     "model": "MobileNetV3Backbone",
     "optimizer_config": {
@@ -25,6 +25,7 @@
         "resume": false,
         "snapshot_path": "",
         "start_epoch": 0,
-        "use_automatic_mixed_precision": true
+        "use_automatic_mixed_precision": true,
+        "profile": true
     }
 }

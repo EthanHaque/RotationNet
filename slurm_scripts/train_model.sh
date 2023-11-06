@@ -16,9 +16,13 @@ module load anaconda3/2023.9
 conda activate torch_env
 
 export OMP_NUM_THREADS=2
+export WANDB_MODE=offline
+
+uid=$(date +%s)
 
 torchrun \
 --nnodes 1 \
 --nproc_per_node 2 \
 /scratch/gpfs/eh0560/SkewNet/src/SkewNet/model/train.py \
+$uid \
 /scratch/gpfs/eh0560/SkewNet/model_training_configs/MobileNetV3Backbone.json
