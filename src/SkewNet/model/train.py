@@ -65,13 +65,14 @@ class Trainer:
             raise ValueError("No snapshot directory provided.")
 
         self.config = trainer_config
-        self.runID = runID
 
         self.local_rank = int(os.environ.get("LOCAL_RANK", 0))
         self.global_rank = int(os.environ.get("RANK", 0))
 
         self.model = model
         self.model = model.to(self.local_rank)
+
+        self.runID = f"{self.model.__class__.__name__}_{runID}"
 
         self.criterion = criterion
         self.optimizer = optimizer
@@ -91,7 +92,7 @@ class Trainer:
 
         if not self.config.snapshot_path:
             self.config.snapshot_path = os.path.join(
-                self.config.snapshot_dir, self.model.__class__.__name__, "snapshot.pth"
+                self.config.snapshot_dir, f"{self.runID}_best.pth"
             )
 
         if not os.path.exists(os.path.dirname(self.config.snapshot_path)):
@@ -102,7 +103,7 @@ class Trainer:
         self.model = DDP(self.model, device_ids=[self.local_rank])
 
         if self.config.profile:
-            group = f"{self.model.module.__class__.__name__}_{self.runID}"
+            group = self.runID
             self.run = wandb.init(
                 project="SkewNet", entity="ethanhaque", config=self.config, dir=self.config.logdir, group=group
             )
@@ -191,7 +192,7 @@ class Trainer:
     def _train(self, epoch, data_loader):
         data_loader.sampler.set_epoch(epoch)
         self.model.train()
-        running_metrics = torch.zeros(3).to(self.local_rank)
+        running_metrics = torch.zeros(3, device=self.local_rank)
         for idx, batch in enumerate(data_loader):
             batch_loss, mae = self._training_step(batch, idx)
             running_metrics[0] += batch_loss.item() * len(batch[0])
@@ -220,7 +221,7 @@ class Trainer:
     def _validate(self, epoch, data_loader):
         data_loader.sampler.set_epoch(epoch)
         self.model.eval()
-        running_metrics = torch.zeros(3).to(self.local_rank)
+        running_metrics = torch.zeros(3, device=self.local_rank)
         for idx, batch in enumerate(data_loader):
             batch_loss, mae = self._eval_step(batch, idx)
             running_metrics[0] += batch_loss.item() * len(batch[0])

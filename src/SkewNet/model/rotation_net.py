@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import mobilenet_v3_large
+from torchvision.models import mobilenet_v3_large, resnet50, convnext_base
 import torchvision.transforms as transforms
 
 
@@ -46,6 +46,26 @@ class ModelRegistry:
     def __str__(self):
         return str(self.registry)
     
+
+#################### Transfer Learning Networks ####################
+
+@ModelRegistry.register("ConvNeXtBaseBackbone")
+class RotationNetConvNeXtBaseBackbone(nn.Module):
+    def __init__(self):
+        super(RotationNetConvNeXtBaseBackbone, self).__init__()
+        self.base_model = convnext_base(weights="DEFAULT")
+        self.base_model.classifier = nn.Identity()
+        self.fc1 = nn.Linear(1024, 1)
+
+    
+    def forward(self, x):
+        x = self.base_model(x)
+        x = torch.flatten(x, 1)
+        x = self.fc1(x)
+
+        return x
+
+    
 @ModelRegistry.register("MobileNetV3Backbone")
 class RotationNetMobileNetV3Backbone(nn.Module):
     def __init__(self):
@@ -60,6 +80,24 @@ class RotationNetMobileNetV3Backbone(nn.Module):
         x = self.fc1(x)
 
         return x
+    
+
+@ModelRegistry.register("Resnet50Backbone")
+class RotationNetResnet50Backbone(nn.Module):
+    def __init__(self):
+        super(RotationNetResnet50Backbone, self).__init__()
+        self.base_model = resnet50(weights="DEFAULT")
+        self.fc1 = nn.Linear(1000, 1)
+
+    
+    def forward(self, x):
+        x = self.base_model(x)
+        x = self.fc1(x)
+
+        return x
+
+
+#################### Test Networks ####################
     
 
 @ModelRegistry.register("SmallTestNetwork")
