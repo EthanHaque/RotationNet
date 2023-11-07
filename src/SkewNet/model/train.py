@@ -10,6 +10,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
+from torch.profiler import profile, record_function, ProfilerActivity
 
 from SkewNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
 from SkewNet.model.rotation_net import ModelRegistry
@@ -264,6 +265,17 @@ class Trainer:
         if self.config.profile:
             self.run.finish()
 
+    def profile(self):
+        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
+            with record_function("model_inference"):
+                self.train_loader.sampler.set_epoch(0)
+                for idx, batch in enumerate(self.train_loader):
+                    self.model.train()
+                    self._training_step(batch, idx)
+                    break
+
+
+        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=15))
 
 def mse_loss(y_pred, y_true, scale=1):
     return torch.mean((y_pred - y_true) ** 2) * scale
@@ -304,6 +316,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="PyTorch SkewNet Training")
     parser.add_argument("runID", metavar="RUNID", help="wandb uuid")
     parser.add_argument("config", metavar="FILE", help="path to config file")
+    parser.add_argument("--profile", action="store_true", help="profile training")
     return parser.parse_args()
 
 
@@ -345,7 +358,11 @@ def main():
     )
 
     trainer = Trainer(train_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset)
-    trainer.fit()
+
+    if args.profile:
+        trainer.profile()
+    else:
+        trainer.fit()
 
     destroy_process_group()
 
