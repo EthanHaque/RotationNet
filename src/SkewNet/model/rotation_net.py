@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import mobilenet_v3_large, resnet50, convnext_base
+from torchvision.models import mobilenet_v3_large, resnet50, convnext_tiny
 import torchvision.transforms as transforms
 
 
@@ -49,13 +49,13 @@ class ModelRegistry:
 
 #################### Transfer Learning Networks ####################
 
-@ModelRegistry.register("ConvNeXtBaseBackbone")
-class RotationNetConvNeXtBaseBackbone(nn.Module):
+@ModelRegistry.register("ConvNeXtTinyBackbone")
+class RotationNetConvNeXtTinyBackbone(nn.Module):
     def __init__(self):
-        super(RotationNetConvNeXtBaseBackbone, self).__init__()
-        self.base_model = convnext_base(weights="DEFAULT")
+        super(RotationNetConvNeXtTinyBackbone, self).__init__()
+        self.base_model = convnext_tiny(weights="DEFAULT")
         self.base_model.classifier = nn.Identity()
-        self.fc1 = nn.Linear(1024, 1)
+        self.fc1 = nn.Linear(768, 1)
 
     
     def forward(self, x):
@@ -64,7 +64,6 @@ class RotationNetConvNeXtBaseBackbone(nn.Module):
         x = self.fc1(x)
 
         return x
-
     
 @ModelRegistry.register("MobileNetV3Backbone")
 class RotationNetMobileNetV3Backbone(nn.Module):
