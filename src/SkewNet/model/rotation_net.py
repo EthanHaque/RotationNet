@@ -47,8 +47,7 @@ class ModelRegistry:
     def __str__(self):
         return str(self.registry)
 
-
-#################### Transfer Learning Networks ####################
+################## Transfer Learning Test Networks ##################
 
 
 @ModelRegistry.register("ConvNeXtTinyBackbone")
@@ -76,12 +75,6 @@ class RotationNetMobileNetV3Backbone(nn.Module):
         self.fc1 = nn.Linear(960, 1)
 
     def forward(self, x):
-        # apply color jitter to input
-        # TODO: testing this out, remove if it doesn't work
-        train_transform = transforms.Compose(
-            [transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2)]
-        )
-        x = train_transform(x)
         x = self.base_model(x)
         x = self.fc1(x)
 
