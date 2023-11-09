@@ -5,11 +5,11 @@
 #SBATCH --error=logs/train_model%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=256G
-#SBATCH --gres=gpu:4
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=128G
+#SBATCH --gres=gpu:2
 #SBATCH --constraint=gpu80
-#SBATCH --time=3:00:00
+#SBATCH --time=1:30:00
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=eh0560@princeton.edu
 
@@ -24,7 +24,7 @@ uid=$(date +%s)
 
 torchrun \
 --nnodes 1 \
---nproc_per_node 1 \
+--nproc_per_node 2 \
 /scratch/gpfs/eh0560/SkewNet/src/SkewNet/model/train.py \
 $uid \
-/scratch/gpfs/eh0560/SkewNet/model_training_configs/ConvNeXtTinyBackbone.json
+/scratch/gpfs/eh0560/SkewNet/model_training_configs/MobileNetV3Backbone.json
