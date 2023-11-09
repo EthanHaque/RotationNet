@@ -3,11 +3,15 @@ import json
 import os
 from dataclasses import dataclass
 
+import numpy as np
+
 import torch
 import wandb
 from torch.distributed import destroy_process_group, init_process_group, ReduceOp, all_reduce
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
+from torchvision.utils import make_grid
+from torchvision.transforms.functional import rotate
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.profiler import profile, record_function, ProfilerActivity
@@ -105,8 +109,15 @@ class Trainer:
 
         if self.config.profile:
             group = self.runID
+            run_config = dict(self.config.__dict__)
+            run_config["model"] = self.model.__class__.__name__
+            run_config["criterion"] = self.criterion.__name__
+            run_config["optimizer"] = self.optimizer.__class__.__name__
+            run_config["min_angle"], run_config["max_angle"] = self.train_dataset.get_angle_interval()
+            run_config["num_train_samples"] = len(self.train_dataset)
+            run_config["num_val_samples"] = len(self.val_loader.dataset) if self.val_loader else 0
             self.run = wandb.init(
-                project="SkewNet", entity="ethanhaque", config=self.config, dir=self.config.logdir, group=group
+                project="SkewNet", entity="ethanhaque", config=run_config, dir=self.config.logdir, group=group
             )
             # self.run.enable_profiling()
             self.run.watch(self.model)
