@@ -24,6 +24,7 @@
         "snapshot_interval": 1,
         "resume": false,
         "snapshot_path": "",
+        "snapshot_prefix": "",
         "start_epoch": 0,
         "use_automatic_mixed_precision": true,
         "profile": true
