@@ -365,17 +365,21 @@ def setup_scheduler(optimizer, step_size, gamma):
 
 
 def setup_criterion():
-    criterion = mse_loss
+    criterion = absoulte_orientation_loss
     return criterion
 
 
-def setup_data_loaders(data_config, transform=None, target_transform=None):
+def setup_data_loaders(
+    data_config, train_transform=None, val_transform=None, test_transform=None, target_transform=None
+):
     train_dataset = RotatedImageDataset(
-        data_config, subset="train", transform=transform, target_transform=target_transform
+        data_config, subset="train", transform=train_transform, target_transform=target_transform
     )
-    val_dataset = RotatedImageDataset(data_config, subset="val", transform=transform, target_transform=target_transform)
+    val_dataset = RotatedImageDataset(
+        data_config, subset="val", transform=val_transform, target_transform=target_transform
+    )
     test_dataset = RotatedImageDataset(
-        data_config, subset="test", transform=transform, target_transform=target_transform
+        data_config, subset="test", transform=test_transform, target_transform=target_transform
     )
 
     return train_dataset, val_dataset, test_dataset
@@ -402,7 +406,7 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
     criterion = setup_criterion()
     optimizer = setup_optimizer(model, optimizer_config.learning_rate, optimizer_config.weight_decay)
     scheduler = setup_scheduler(optimizer, scheduler_config.step_size, scheduler_config.gamma)
-    image_transform = transforms.Compose(
+    train_transform = transforms.Compose(
         [transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2)]
     )
 
@@ -412,7 +416,7 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
         return angle
 
     train_dataset, val_dataset, _ = setup_data_loaders(
-        data_config, transform=image_transform, target_transform=remap_angle
+        data_config, train_transform=train_transform, target_transform=remap_angle
     )
     return model, criterion, optimizer, scheduler, train_dataset, val_dataset
 
