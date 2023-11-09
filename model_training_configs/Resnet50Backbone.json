@@ -1,7 +1,7 @@
 {
     "data_config": {
-        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv",
-        "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
+        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles_full_data.csv",
+        "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_full/",
         "truncate": 1.0
     },
     "model": "Resnet50Backbone",

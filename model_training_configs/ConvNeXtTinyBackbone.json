@@ -1,8 +1,10 @@
 {
     "data_config": {
-        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv",
-        "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
-        "truncate": 1.0
+        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles_full_data.csv",
+        "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_full/",
+        "truncate": 1.0,
+        "min_angle": 0,
+        "max_angle": 0.1
     },
     "model": "ConvNeXtTinyBackbone",
     "optimizer_config": {
@@ -15,13 +17,13 @@
     },
     "train_config": {
         "batch_size": 56,
-        "data_loader_num_workers": 4,
+        "data_loader_num_workers": 10,
         "data_loader_prefetch_factor": 2,
         "evaluate": true,
         "grad_norm_clip": 1.0,
         "max_epochs": 20,
         "snapshot_dir": "/scratch/gpfs/eh0560/SkewNet/snapshots",
-        "snapshot_interval": 1,
+        "snapshot_interval": 15,
         "resume": false,
         "snapshot_path": "",
         "snapshot_prefix": "",
