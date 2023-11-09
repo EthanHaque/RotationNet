@@ -15,6 +15,7 @@ from torchvision.transforms.functional import rotate
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 from torch.profiler import profile, record_function, ProfilerActivity
+from torchvision import transforms
 
 from SkewNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
 from SkewNet.model.rotation_net import ModelRegistry
@@ -401,9 +402,18 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
     criterion = setup_criterion()
     optimizer = setup_optimizer(model, optimizer_config.learning_rate, optimizer_config.weight_decay)
     scheduler = setup_scheduler(optimizer, scheduler_config.step_size, scheduler_config.gamma)
-    # make angles between -pi and pi randians instead of 0 to 2pi
-    
-    train_dataset, val_dataset, _ = setup_data_loaders(data_config)
+    image_transform = transforms.Compose(
+        [transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2)]
+    )
+
+    def remap_angle(angle):
+        if angle > torch.pi:
+            angle -= 2 * torch.pi
+        return angle
+
+    train_dataset, val_dataset, _ = setup_data_loaders(
+        data_config, transform=image_transform, target_transform=remap_angle
+    )
     return model, criterion, optimizer, scheduler, train_dataset, val_dataset
 
 
