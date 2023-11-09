@@ -29,6 +29,7 @@ class TrainConfig:
     data_loader_prefetch_factor: int = 4
     data_loader_num_workers: int = 8
     snapshot_dir: str = ""
+    snapshot_prefix: str = ""
     snapshot_path: str = ""
     resume: bool = False
     snapshot_interval: int = 1
@@ -95,13 +96,11 @@ class Trainer:
         if self.config.use_automatic_mixed_precision:
             self.scaler = torch.cuda.amp.GradScaler()
 
-        if not self.config.snapshot_path:
-            self.config.snapshot_path = os.path.join(
-                self.config.snapshot_dir, f"{self.runID}_best.pth"
-            )
+        if not self.config.snapshot_prefix:
+            self.config.snapshot_prefix = os.path.join(self.config.snapshot_dir, f"{self.runID}_snapshot")
 
-        if not os.path.exists(os.path.dirname(self.config.snapshot_path)):
-            os.makedirs(os.path.dirname(self.config.snapshot_path))
+        if not os.path.exists(os.path.dirname(self.config.snapshot_prefix)):
+            os.makedirs(os.path.dirname(self.config.snapshot_prefix))
         if self.config.resume:
             self._load_snapshot(self.config.snapshot_path)
 
@@ -131,6 +130,7 @@ class Trainer:
                 print(f"Val samples {len(self.val_loader.dataset)}")
             print(f"Batch size {self.config.batch_size}")
             print(f"Epochs {self.config.max_epochs}")
+            print(f"Criterion {self.criterion.__name__}")
 
     def _prepare_distributed_dataloader(self, dataset):
         return DataLoader(
@@ -213,7 +213,7 @@ class Trainer:
 
         all_reduce(running_metrics, op=ReduceOp.SUM)
         average_loss = (running_metrics[0] / running_metrics[2]).item()
-        average_mae = (running_metrics[0] / running_metrics[2]).item()
+        average_mae = (running_metrics[1] / running_metrics[2]).item()
         if self.global_rank == 0:
             print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f} | Train MAE: {average_mae:.5f}")
 
@@ -228,6 +228,18 @@ class Trainer:
             print(
                 f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Val Loss: {loss:.5f} | Val MAE: {mae:.5f}"
             )
+
+            if batch_idx == 0 and self.global_rank == 0:
+                num_samples = min(len(x), 4)
+                x = x[:num_samples]
+                y = y[:num_samples]
+                y_hat = y_hat[:num_samples]
+                y_hat_rad_to_deg = y_hat * 180 / np.pi
+                rotated_images = torch.stack([rotate(img, -angle.item()) for img, angle in zip(x, y_hat_rad_to_deg)])
+                x = torch.cat([x, rotated_images])
+                grid = make_grid(x, nrow=4, normalize=True)
+                self.run.log({"examples": [wandb.Image(grid)]}, step=self.epochs_run)
+
             return loss, mae
 
     def _validate(self, epoch, data_loader):
@@ -242,7 +254,7 @@ class Trainer:
 
         all_reduce(running_metrics, op=ReduceOp.SUM)
         average_loss = (running_metrics[0] / running_metrics[2]).item()
-        average_mae = (running_metrics[0] / running_metrics[2]).item()
+        average_mae = (running_metrics[1] / running_metrics[2]).item()
         if self.global_rank == 0:
             print(f"EPOCH {self.epochs_run} | Val Loss: {average_loss:.5f} | Val MAE: {average_mae:.5f}")
 
@@ -254,14 +266,11 @@ class Trainer:
             val_loss = None
             if self.val_loader:
                 val_loss, val_mae = self._validate(epoch, self.val_loader)
-                # TODO: make sure everything is communicated properly. All reduce?
-                # TODO: add save snapshot for rank 0 only and for periodic snapshots
                 # TODO: add early stopping
                 if val_loss < self.best_loss:
                     self.best_loss = val_loss
                     self.best_epoch = epoch
-                    self._save_snapshot(self.config.snapshot_path)
-            self.epochs_run += 1
+                    self._save_snapshot(f"{self.config.snapshot_prefix}_best.pth")
 
             if self.config.profile:
                 metrics = {
@@ -271,13 +280,20 @@ class Trainer:
                     "val_mae": val_mae,
                     "epoch": epoch,
                 }
-                self.run.log(metrics)
+                self.run.log(metrics, step=epoch)
+
+            if epoch % self.snapshot_interval == 0:
+                self._save_snapshot(f"{self.config.snapshot_prefix}_{epoch}.pth")
+
+            self.epochs_run += 1
 
         if self.config.profile:
             self.run.finish()
 
     def profile(self):
-        with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True, record_shapes=True) as prof:
+        with profile(
+            activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True, record_shapes=True
+        ) as prof:
             with record_function("model_inference"):
                 self.train_loader.sampler.set_epoch(0)
                 for idx, batch in enumerate(self.train_loader):
@@ -285,8 +301,8 @@ class Trainer:
                     self._training_step(batch, idx)
                     break
 
-
         print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=15))
+
 
 def mse_loss(y_pred, y_true, scale=1):
     return torch.mean((y_pred - y_true) ** 2) * scale
@@ -294,6 +310,47 @@ def mse_loss(y_pred, y_true, scale=1):
 
 def mae_loss(y_pred, y_true, scale=1):
     return torch.mean(torch.abs(y_pred - y_true)) * scale
+
+
+def mse_with_orientation_penalty(y_pred, y_true, scale=1):
+    orientation_loss = torch.mean(torch.min(torch.zeros_like(y_pred), y_pred * y_true))
+    return (mse_loss(y_pred, y_true) + orientation_loss) * scale
+
+
+def absoulte_orientation_loss(y_pred, y_true, scale=1):
+    absoulte_difference = torch.abs(y_pred - y_true)
+    return torch.mean(torch.min(absoulte_difference, 2 * np.pi - absoulte_difference)) * scale
+
+
+def squared_orientation_loss(y_pred, y_true, scale=1):
+    absoulte_difference = torch.abs(y_pred - y_true)
+    return torch.mean(torch.min(absoulte_difference**2, (2 * np.pi - absoulte_difference) ** 2)) * scale
+
+
+def cosine_similarity_loss(y_pred, y_true, scale=1):
+    y_pred = torch.cos(y_pred)
+    y_true = torch.cos(y_true)
+    return torch.mean((y_pred - y_true) ** 2) * scale
+
+
+def cosine_loss(y_pred, y_true, scale=1):
+    return torch.mean(1 - torch.cos(y_pred - y_true)) * scale
+
+
+def taylor_expansion_of_cosine_loss(y_pred, y_true, scale=1):
+    powers = [2, 4, 6, 8, 10, 12, 14, 16]
+    coefficients = [
+        1 / 2,
+        -1 / 24,
+        1 / 720,
+        -1 / 40320,
+        1 / 3628800,
+        -1 / 479001600,
+        1 / 87178291200,
+        -1 / 20922789888000,
+    ]
+    diff = y_pred - y_true
+    return torch.mean(sum([coeff * diff**power for coeff, power in zip(coefficients, powers)])) * scale
 
 
 def setup_optimizer(model, learning_rate, weight_decay):
@@ -327,7 +384,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="PyTorch SkewNet Training")
     parser.add_argument("runID", metavar="RUNID", help="wandb uuid")
     parser.add_argument("config", metavar="FILE", help="path to config file")
-    parser.add_argument("--profile", action="store_true", help="profile training")
+    parser.add_argument("--dryrun", action="store_true", help="profile training")
     return parser.parse_args()
 
 
@@ -344,6 +401,8 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
     criterion = setup_criterion()
     optimizer = setup_optimizer(model, optimizer_config.learning_rate, optimizer_config.weight_decay)
     scheduler = setup_scheduler(optimizer, scheduler_config.step_size, scheduler_config.gamma)
+    # make angles between -pi and pi randians instead of 0 to 2pi
+    
     train_dataset, val_dataset, _ = setup_data_loaders(data_config)
     return model, criterion, optimizer, scheduler, train_dataset, val_dataset
 
@@ -370,7 +429,7 @@ def main():
 
     trainer = Trainer(train_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset)
 
-    if args.profile:
+    if args.dryrun:
         trainer.profile()
     else:
         trainer.fit()
