@@ -40,21 +40,28 @@ def compose_document_onto_background(document_image, background_image, output_im
     random_y_scale = np.random.uniform(0.75, 1.1)
     document_image = cv2.resize(document_image, (0, 0), fx=random_x_scale, fy=random_y_scale)
 
+    # getting the size of the background
     initial_backgound_height, initial_backgound_width = background_image.shape[:2]
+    # getting the size of the document after random scaling
     initial_document_height, initial_document_width = document_image.shape[:2]
 
+    # getting random angles for the document and the background
     document_angle = np.random.uniform(*document_angle_range) * np.pi / 180.0
     background_angle = np.random.uniform(*background_angle_range) * np.pi / 180.0
+    # Setting the target size of the background (output image)
     target_background_width = 900
     target_background_height = 1200
 
+    # getting the size of the document after rotation
     rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(
         document_image.shape[1], document_image.shape[0], document_angle
-    )
+    )  
+    # getting the size of the background after rotation
     rotated_background_width, rotated_background_height = image_utils.get_size_of_rotated_image(
         background_image.shape[1], background_image.shape[0], background_angle
     )
 
+    # scaling the document image to fit the background
     scale_down_factor = np.random.uniform(0.75, 0.95)
     largest_document_side = max(rotated_document_width, rotated_document_height)
     smallest_target_size = min(target_background_width, target_background_height)
@@ -67,6 +74,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     document_image = image_utils.rotate_image(document_image, document_angle)
     mask = image_utils.rotate_image(mask, document_angle)
 
+    # applying flip, rotation, and cropping to the background image
     random_flip_direciton = np.random.randint(-1, 2)
     background_image = image_utils.flip_image(background_image, random_flip_direciton)
     background_image = image_utils.rotate_image(background_image, background_angle)
@@ -86,16 +94,20 @@ def compose_document_onto_background(document_image, background_image, output_im
     random_crop_x1 = np.random.randint(0, background_image.shape[1] - crop_width)
     random_crop_y1 = np.random.randint(0, background_image.shape[0] - crop_height)
 
+    # Background images are large, so we crop them to target size after applying all the transformations
     background_image = image_utils.crop_image(background_image, random_crop_x1, random_crop_y1, crop_width, crop_height)
     background_image = cv2.resize(background_image, (target_background_width, target_background_height))
 
+    # coordinates of the top left corner of the document image on the background image
     superimposed_image_x = np.random.randint(0, background_image.shape[1] - document_image.shape[1])
     superimposed_image_y = np.random.randint(0, background_image.shape[0] - document_image.shape[0])
 
+    # superimposing the document image on the background image
     superimposed_image = image_utils.superimpose_image_on_background(
         document_image, background_image, mask, superimposed_image_x, superimposed_image_y
     )
 
+    # saving the image
     name = uuid.uuid4()
     cv2.imwrite(os.path.join(output_images_dir, f"{name}.jpg"), superimposed_image)
 
