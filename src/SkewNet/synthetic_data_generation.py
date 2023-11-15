@@ -304,7 +304,7 @@ def main(use_background_images=True):
 
     create_output_dir(output_images_dir)
 
-    document_images = collect_all_files(document_image_dirs)[:50]
+    document_images = collect_all_files(document_image_dirs)
     background_images = collect_all_files(background_image_dirs)
 
     logger.info(f"Found {len(document_images)} document images")
