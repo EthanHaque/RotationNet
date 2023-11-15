@@ -1,10 +1,9 @@
-import unittest
-from unittest.mock import patch
-import numpy as np
 import os
-from SkewNet.synthetic_data_generation import compose_document_onto_background
-import cv2
 import random
+import unittest
+
+import numpy as np
+from SkewNet.synthetic_data_generation import compose_document_onto_background
 
 
 def low_value_mock(low, high, *args, **kwargs):
