@@ -2,7 +2,7 @@ import unittest
 from unittest.mock import patch
 import numpy as np
 import os
-from SkewNet.synthetic_data_generation import compose_document_onto_background, modular_compose_document_onto_background
+from SkewNet.synthetic_data_generation import compose_document_onto_background
 import cv2
 import random
 
