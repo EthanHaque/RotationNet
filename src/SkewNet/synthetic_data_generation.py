@@ -209,99 +209,122 @@ def split_data(df, train_size=0.7, test_size=0.3, val_size=1/3):
 
 def verify_invariants(df, expected_train_ratio, expected_test_ratio, expected_val_ratio, epsilon=0.05):
     # Check the ratios
-    actual_train_ratio = len(df[df['split'] == 'train']) / len(df)
-    actual_test_ratio = len(df[df['split'] == 'test']) / len(df)
-    actual_val_ratio = len(df[df['split'] == 'val']) / len(df)
+    actual_train_ratio = len(df[df["split"] == "train"]) / len(df)
+    actual_test_ratio = len(df[df["split"] == "test"]) / len(df)
+    actual_val_ratio = len(df[df["split"] == "val"]) / len(df)
 
     ratios_within_tolerance = (
-        abs(actual_train_ratio - expected_train_ratio) <= epsilon and
-        abs(actual_test_ratio - expected_test_ratio) <= epsilon and
-        abs(actual_val_ratio - expected_val_ratio) <= epsilon
+        abs(actual_train_ratio - expected_train_ratio) <= epsilon
+        and abs(actual_test_ratio - expected_test_ratio) <= epsilon
+        and abs(actual_val_ratio - expected_val_ratio) <= epsilon
     )
-    
+
     if not ratios_within_tolerance:
         print("Ratios are not within the expected tolerance.")
         return False
-    
+
     # Check for consistent splits for the same document_image_path
-    split_consistency = df.groupby('document_image_path')['split'].nunique().max() == 1
-    
+    split_consistency = df.groupby("document_image_path")["split"].nunique().max() == 1
+
     if not split_consistency:
         print("There are document_image_path values with inconsistent splits.")
         return False
-    
+
     return True
 
 
+def collect_all_files(directories):
+    all_files = []
+    for directory in directories:
+        all_files.extend(collect_files(directory))
+    return all_files
+
+
+def create_output_dir(output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+
+
+def get_random_background_images(num_doc_images, background_images):
+    return np.random.choice(background_images, num_doc_images)
+
+
+def process_images(document_images, background_images, output_dir, strategy="parallel", workers=cpu_count()):
+    logger = logging.getLogger(__name__)
+    if strategy == "parallel":
+        logger.info(f"Using {workers} workers to process images")
+        with Pool(workers) as p:
+            annotations = p.starmap(
+                process_image,
+                zip(
+                    document_images,
+                    background_images,
+                    [output_dir] * len(document_images),
+                    range(len(document_images)),
+                ),
+            )
+    elif strategy == "sequential":
+        logger.info("Processing images sequentially")
+        annotations = []
+        for i in range(len(document_images)):
+            annotation = process_image(document_images[i], background_images[i], output_dir, i)
+            if annotation is not None:
+                annotations.append(annotation)
+    else:
+        raise ValueError(f"Invalid strategy: {strategy}. Valid strategies are 'sequential' and 'parallel'.")
+    return [annotation for annotation in annotations if annotation is not None]
+
+def save_annotations(final_df, annotations_file):
+    logger = logging.getLogger(__name__)
+    final_df.to_csv(annotations_file, index=False)
+    logger.info(f"Saved annotations to {annotations_file}")
+
+
+def check_data_integrity(final_df):
+    data_integrity = verify_invariants(final_df, 0.7, 0.2, 0.1)
+    if not data_integrity:
+        print("Data integrity check failed. Exiting.")
+        return False
+    else:
+        print("Data integrity check passed.")
+        return True
+
+
 def main():
-    """
-    Main function to test the synthetic data generation.
-    """
-    logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=True) 
+    logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=True)
     logger = logging.getLogger(__name__)
 
-    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles_full_data.csv"
+    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/test.csv"
 
-    cudl_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images")
-    doc_lay_net_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images")
-    publaynet_document_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/publaynet/train")
+    document_image_dirs = [
+        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images",
+        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images",
+        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/publaynet/train",
+    ]
 
-    texture_ninja_background_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja")
-    pexels_background_images = collect_files("/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures")
-    # TODO: add images with solid colors as backgrounds and simple textures
+    background_image_dirs = [
+        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja",
+        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures",
+    ]
 
-    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_full"
+    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/test"
 
-    os.makedirs(output_images_dir, exist_ok=True)
+    create_output_dir(output_images_dir)
 
-    document_images = []
-
-    for _ in range(10):
-        document_images.extend(cudl_document_images)
-    document_images.extend(doc_lay_net_document_images)
-    document_images.extend(publaynet_document_images)
-
-
-    background_images = []
-    background_images.extend(texture_ninja_background_images)
-    background_images.extend(pexels_background_images)
+    document_images = collect_all_files(document_image_dirs)[:100]
+    background_images = collect_all_files(background_image_dirs)
 
     logger.info(f"Found {len(document_images)} document images")
     logger.info(f"Found {len(background_images)} background images")
 
-    random_background_images = np.random.choice(background_images, len(document_images))
+    random_background_images = get_random_background_images(len(document_images), background_images)
 
-    annotations = []
-    workers = cpu_count()
-    logger.info(f"Using {workers} workers to process images")
-    with Pool(workers) as p:
-        annotations = p.starmap(
-            process_image,
-            zip(
-                document_images,
-                random_background_images,
-                [output_images_dir] * len(document_images),
-                range(len(document_images)),
-            ),
-        )
+    annotations = process_images(document_images, random_background_images, output_images_dir, strategy="sequential")
 
-    annotations = [annotation for annotation in annotations if annotation is not None]
     annotations_df = pd.DataFrame(annotations)
-
     final_df = split_data(annotations_df)
-    data_integrity = verify_invariants(final_df, 0.7, 0.2, 0.1)
-    if not data_integrity:
-        print("Data integrity check failed. Exiting.")
-        return
-    else:
-        print("Data integrity check passed.")
 
-    final_df.to_csv(annotations_file, index=False)
-    logger.info(f"Saved annotations to {annotations_file}")
-
-    ## Sequential processing test
-    # for i in range(len(document_images)):
-    #     process_image(document_images[i], random_background_images[i], output_images_dir, i)
+    if check_data_integrity(final_df):
+        save_annotations(final_df, annotations_file)
 
 
 if __name__ == "__main__":
