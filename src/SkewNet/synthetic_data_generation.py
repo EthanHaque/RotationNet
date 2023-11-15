@@ -36,6 +36,13 @@ def preprocess_document(document_image, config):
 def preprocess_document_with_no_background(document_image, config):
     document_angle = np.random.uniform(*config["document_angle_range"]) * np.pi / 180.0
     document_image = image_utils.rotate_image(document_image, document_angle)
+
+    x_ratio = config["backround_target_dimensions"][0] / document_image.shape[0]
+    y_ratio = config["backround_target_dimensions"][1] / document_image.shape[1]
+    scale = min(min(x_ratio, y_ratio) * 0.99, 1.0)
+
+    document_image = cv2.resize(document_image, (0, 0), fx=scale, fy=scale)
+
     mask = document_image[:, :, 3]
 
     return document_image, mask, document_angle
@@ -103,12 +110,16 @@ def compose_document_onto_background(document_image, background_image, output_im
 
 
 def compose_document_with_no_background(document_image, output_images_dir):
-    config = {"document_angle_range": (0.0, 360.0)}
+    config = {"document_angle_range": (0.0, 360.0), "backround_target_dimensions": (2000, 2000)}
 
     document_image, mask, document_angle = preprocess_document_with_no_background(document_image, config)
-    background_image = np.ones((document_image.shape[0], document_image.shape[1], 4), dtype=np.uint8) * 255
+    background_image = np.ones(config["backround_target_dimensions"] + (4,), dtype=np.uint8) * 255
 
-    superimposed_image = image_utils.superimpose_image_on_background(document_image, background_image, mask, 0, 0)
+    # compute coordinates that would put the document image in the center of the background image
+    superimposed_image_x = (background_image.shape[1] - document_image.shape[1]) // 2
+    superimposed_image_y = (background_image.shape[0] - document_image.shape[0]) // 2
+
+    superimposed_image = image_utils.superimpose_image_on_background(document_image, background_image, mask, superimposed_image_x, superimposed_image_y)
 
     name = save_image(superimposed_image, output_images_dir)
     annotation = {"image_name": f"{name}", "document_angle": document_angle}
