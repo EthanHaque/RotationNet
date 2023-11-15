@@ -26,11 +26,8 @@ def preprocess_document(document_image, config):
     scale = scale_down_factor * smallest_target_size / largest_document_side
 
     document_image = cv2.resize(image, (0, 0), fx=scale, fy=scale)
-    mask = document_image[:, :, 3]
-
     document_image = image_utils.rotate_image(document_image, document_angle)
-    mask = image_utils.rotate_image(mask, document_angle)
-    # shouldn't mask = document_image[:, :, 3] work without the second rotate?
+    mask = document_image[:, :, 3]
 
     return document_image, mask, document_angle
 
