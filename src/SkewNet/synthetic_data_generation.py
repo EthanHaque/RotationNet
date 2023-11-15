@@ -6,9 +6,10 @@ from multiprocessing import Pool, cpu_count
 
 import cv2
 import numpy as np
-from SkewNet.utils import image_utils, logging_utils
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
+
+from SkewNet.utils import image_utils, logging_utils
 
 
 def preprocess_document(document_image, config):
