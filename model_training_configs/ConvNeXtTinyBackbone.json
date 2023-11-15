@@ -4,7 +4,7 @@
         "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_full/",
         "truncate": 1.0,
         "min_angle": 0,
-        "max_angle": 0.1
+        "max_angle": 0.5
     },
     "model": "ConvNeXtTinyBackbone",
     "optimizer_config": {
