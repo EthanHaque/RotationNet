@@ -171,6 +171,7 @@ def process_image(image_path, background_path, output_images_dir, index):
     np.random.seed(int(time.time()) + index)
 
     document_image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    # Blur the edges of the document image to avoid sharp edges.
     if (document_image.shape[2]) == 3:
         document_image = cv2.cvtColor(document_image, cv2.COLOR_BGR2BGRA)
         border_size = 3
