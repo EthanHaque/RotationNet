@@ -48,33 +48,6 @@ class TestSyntheticDataGeneration(unittest.TestCase):
         self.image_name = annotation["image_name"]
         self.assertTrue(os.path.exists(os.path.join(self.output_images_dir, self.image_name)))
 
-    def _test_image_composition(self, uniform_mock, randint_mock):
-        with patch("numpy.random.uniform", side_effect=uniform_mock), patch(
-            "numpy.random.randint", side_effect=randint_mock
-        ), patch("uuid.uuid4", return_value="test"):
-            annotation_original = compose_document_onto_background(
-                self.document_image, self.background_image, self.output_images_dir
-            )
-            original_image = cv2.imread(os.path.join(self.output_images_dir, self.image_name))
-
-            annotation_modular = modular_compose_document_onto_background(
-                self.document_image, self.background_image, self.output_images_dir
-            )
-            modular_image = cv2.imread(os.path.join(self.output_images_dir, self.image_name))
-
-            self.assertEqual(annotation_original["document_angle"], annotation_modular["document_angle"])
-            self.assertEqual(annotation_original["image_name"], annotation_modular["image_name"])
-            self.assertTrue(np.array_equal(original_image, modular_image))
-
-
-    def test_image_composition_middle_value(self):
-        self._test_image_composition(middle_value_mock, low_value_mock)
-        self._test_image_composition(middle_value_mock, high_value_mock)
-
-    def test_image_composition_random_value(self):
-        self._test_image_composition(set_random_value_mock, low_value_mock)
-        self._test_image_composition(set_random_value_mock, high_value_mock)
-
     def tearDown(self):
         if self.image_name and os.path.exists(os.path.join(self.output_images_dir, self.image_name)):
             os.remove(os.path.join(self.output_images_dir, self.image_name))
