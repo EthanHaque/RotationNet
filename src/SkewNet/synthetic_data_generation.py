@@ -119,7 +119,9 @@ def compose_document_with_no_background(document_image, output_images_dir):
     superimposed_image_x = (background_image.shape[1] - document_image.shape[1]) // 2
     superimposed_image_y = (background_image.shape[0] - document_image.shape[0]) // 2
 
-    superimposed_image = image_utils.superimpose_image_on_background(document_image, background_image, mask, superimposed_image_x, superimposed_image_y)
+    superimposed_image = image_utils.superimpose_image_on_background(
+        document_image, background_image, mask, superimposed_image_x, superimposed_image_y
+    )
 
     name = save_image(superimposed_image, output_images_dir)
     annotation = {"image_name": f"{name}", "document_angle": document_angle}
