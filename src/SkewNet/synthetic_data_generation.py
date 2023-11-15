@@ -167,12 +167,11 @@ def process_image(image_path, background_path, output_images_dir, index, use_bac
 
     if use_background_images:
         annotation = compose_document_onto_background(document_image, background_image, output_images_dir)
+        annotation["background_image_path"] = background_path
     else:
         annotation = compose_document_with_no_background(document_image, output_images_dir)
 
     annotation["document_image_path"] = image_path
-    if use_background_images:
-        annotation["background_image_path"] = background_path
     return annotation
 
 
