@@ -42,8 +42,6 @@ def compose_document_onto_background(document_image, background_image, output_im
 
     # getting the size of the background
     initial_backgound_height, initial_backgound_width = background_image.shape[:2]
-    # getting the size of the document after random scaling
-    initial_document_height, initial_document_width = document_image.shape[:2]
 
     # getting random angles for the document and the background
     document_angle = np.random.uniform(*document_angle_range) * np.pi / 180.0
@@ -56,10 +54,6 @@ def compose_document_onto_background(document_image, background_image, output_im
     rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(
         document_image.shape[1], document_image.shape[0], document_angle
     )  
-    # getting the size of the background after rotation
-    rotated_background_width, rotated_background_height = image_utils.get_size_of_rotated_image(
-        background_image.shape[1], background_image.shape[0], background_angle
-    )
 
     # scaling the document image to fit the background
     scale_down_factor = np.random.uniform(0.75, 0.95)
