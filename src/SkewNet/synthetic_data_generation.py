@@ -6,9 +6,94 @@ from multiprocessing import Pool, cpu_count
 
 import cv2
 import numpy as np
-from utils import image_utils, logging_utils
+from SkewNet.utils import image_utils, logging_utils
 import pandas as pd
 from sklearn.model_selection import GroupShuffleSplit
+
+
+def preprocess_document(document_image, config):
+    random_x_scale, random_y_scale = np.random.uniform(*config["document_scale_range"], 2)
+    image = cv2.resize(document_image, (0, 0), fx=random_x_scale, fy=random_y_scale)
+
+    document_angle = np.random.uniform(*config["document_angle_range"]) * np.pi / 180.0
+    rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(
+        image.shape[1], image.shape[0], document_angle
+    )
+
+    scale_down_factor = np.random.uniform(*config["document_scale_down_factor_range"])
+    largest_document_side = max(rotated_document_width, rotated_document_height)
+    smallest_target_size = min(*config["backround_target_dimensions"])
+    scale = scale_down_factor * smallest_target_size / largest_document_side
+
+    document_image = cv2.resize(image, (0, 0), fx=scale, fy=scale)
+    mask = document_image[:, :, 3]
+
+    document_image = image_utils.rotate_image(document_image, document_angle)
+    mask = image_utils.rotate_image(mask, document_angle)
+    # shouldn't mask = document_image[:, :, 3] work without the second rotate?
+
+    return document_image, mask, document_angle
+
+
+def preprocess_background(background_image, config):
+    initial_backgound_height, initial_backgound_width = background_image.shape[:2]
+    background_angle = np.random.uniform(*config["background_angle_range"]) * np.pi / 180.0
+    random_flip_direciton = np.random.randint(-1, 2)
+    background_image = image_utils.flip_image(background_image, random_flip_direciton)
+    background_image = image_utils.rotate_image(background_image, background_angle)
+    background_image = image_utils.crop_from_angle(
+        background_image, initial_backgound_width, initial_backgound_height, -background_angle
+    )
+
+    random_width_scale, random_height_scale = np.random.uniform(*config["background_scale_range"], 2)
+    crop_width = int(config["backround_target_dimensions"][0] * random_width_scale)
+    crop_width = min(crop_width, background_image.shape[1]) - 1
+    crop_height = int(config["backround_target_dimensions"][1] * random_height_scale)
+    crop_height = min(crop_height, background_image.shape[0]) - 1
+
+    random_crop_x1 = np.random.randint(0, background_image.shape[1] - crop_width)
+    random_crop_y1 = np.random.randint(0, background_image.shape[0] - crop_height)
+
+    background_image = image_utils.crop_image(background_image, random_crop_x1, random_crop_y1, crop_width, crop_height)
+    background_image = cv2.resize(background_image, config["backround_target_dimensions"])
+
+    return background_image
+
+
+def save_image(image, output_images_dir):
+    name = uuid.uuid4()
+    cv2.imwrite(os.path.join(output_images_dir, f"{name}.jpg"), image)
+    return f"{name}.jpg"
+
+
+def modular_compose_document_onto_background(document_image, background_image, output_images_dir):
+    config = {
+        "document_scale_range": (0.75, 1.1),
+        "background_scale_range": (1.0, 1.1),
+        "document_angle_range": (0.0, 360.0),
+        "background_angle_range": (0.0, 360.0),
+        "document_scale_down_factor_range": (0.75, 0.95),
+        "backround_target_dimensions": (900, 1200),
+    }
+
+    document_image, mask, document_angle = preprocess_document(document_image, config)
+    background_image = preprocess_background(background_image, config)
+
+    # coordinates of the top left corner of the document image on the background image
+    superimposed_image_x = np.random.randint(0, background_image.shape[1] - document_image.shape[1])
+    superimposed_image_y = np.random.randint(0, background_image.shape[0] - document_image.shape[0])
+
+    # superimposing the document image on the background image
+    superimposed_image = image_utils.superimpose_image_on_background(
+        document_image, background_image, mask, superimposed_image_x, superimposed_image_y
+    )
+
+    # saving the image
+    name = save_image(superimposed_image, output_images_dir)
+
+    annotation = {"image_name": f"{name}", "document_angle": document_angle}
+
+    return annotation
 
 
 def compose_document_onto_background(document_image, background_image, output_images_dir):
@@ -53,7 +138,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     # getting the size of the document after rotation
     rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(
         document_image.shape[1], document_image.shape[0], document_angle
-    )  
+    )
 
     # scaling the document image to fit the background
     scale_down_factor = np.random.uniform(0.75, 0.95)
@@ -105,21 +190,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     name = uuid.uuid4()
     cv2.imwrite(os.path.join(output_images_dir, f"{name}.jpg"), superimposed_image)
 
-    annotation = {
-        "image_name": f"{name}.jpg",
-        "document_angle": document_angle,
-        "background_angle": background_angle,
-        "scale": scale,
-        "random_flip_direciton": random_flip_direciton,
-        "random_width_scale": random_width_scale,
-        "random_height_scale": random_height_scale,
-        "random_crop_x1": random_crop_x1,
-        "random_crop_y1": random_crop_y1,
-        "crop_width": crop_width,
-        "crop_height": crop_height,
-        "superimposed_image_x": superimposed_image_x,
-        "superimposed_image_y": superimposed_image_y,
-    }
+    annotation = {"image_name": f"{name}.jpg", "document_angle": document_angle}
 
     return annotation
 
@@ -268,10 +339,7 @@ def process_images(document_images, background_images, output_dir, strategy="par
             annotations = p.starmap(
                 process_image,
                 zip(
-                    document_images,
-                    background_images,
-                    [output_dir] * len(document_images),
-                    range(len(document_images)),
+                    document_images, background_images, [output_dir] * len(document_images), range(len(document_images))
                 ),
             )
     elif strategy == "sequential":
