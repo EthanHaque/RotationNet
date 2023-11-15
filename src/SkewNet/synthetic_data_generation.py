@@ -33,6 +33,14 @@ def preprocess_document(document_image, config):
     return document_image, mask, document_angle
 
 
+def preprocess_document_with_no_background(document_image, config):
+    document_angle = np.random.uniform(*config["document_angle_range"]) * np.pi / 180.0
+    document_image = image_utils.rotate_image(document_image, document_angle)
+    mask = document_image[:, :, 3]
+
+    return document_image, mask, document_angle
+
+
 def preprocess_background(background_image, config):
     initial_backgound_height, initial_backgound_width = background_image.shape[:2]
     background_angle = np.random.uniform(*config["background_angle_range"]) * np.pi / 180.0
@@ -94,6 +102,20 @@ def compose_document_onto_background(document_image, background_image, output_im
     return annotation
 
 
+def compose_document_with_no_background(document_image, output_images_dir):
+    config = {"document_angle_range": (0.0, 360.0)}
+
+    document_image, mask, document_angle = preprocess_document_with_no_background(document_image, config)
+    background_image = np.ones((document_image.shape[0], document_image.shape[1], 4), dtype=np.uint8) * 255
+
+    superimposed_image = image_utils.superimpose_image_on_background(document_image, background_image, mask, 0, 0)
+
+    name = save_image(superimposed_image, output_images_dir)
+    annotation = {"image_name": f"{name}", "document_angle": document_angle}
+
+    return annotation
+
+
 def collect_files(directory):
     """
     Collects all files in a directory
@@ -114,27 +136,7 @@ def collect_files(directory):
     return [os.path.join(directory, f) for f in os.listdir(directory)]
 
 
-def process_image(image_path, background_path, output_images_dir, index):
-    """
-    Composes a document image onto a background image applying a series
-    of transformations to the document image and the background image.
-
-    Parameters
-    ----------
-    image_path : str
-        Path to the document image.
-    background_path : str
-        Path to the background image.
-    output_images_dir : str
-        Output directory where the composed image will be saved.
-    index : int
-        Index of the image to be saved.
-
-    Returns
-    -------
-    annotation : dict
-        Dictionary containing the annotation information.
-    """
+def process_image(image_path, background_path, output_images_dir, index, use_background_images=True):
     logger = logging.getLogger(__name__)
     logger.info(f"Processing image {index} with path {image_path}")
 
@@ -163,9 +165,14 @@ def process_image(image_path, background_path, output_images_dir, index):
         logger.warning(f"Background image {background_path} has dtype {background_image.dtype}")
         return
 
-    annotation = compose_document_onto_background(document_image, background_image, output_images_dir)
+    if use_background_images:
+        annotation = compose_document_onto_background(document_image, background_image, output_images_dir)
+    else:
+        annotation = compose_document_with_no_background(document_image, output_images_dir)
+
     annotation["document_image_path"] = image_path
-    annotation["background_image_path"] = background_path
+    if use_background_images:
+        annotation["background_image_path"] = background_path
     return annotation
 
 
@@ -230,7 +237,9 @@ def get_random_background_images(num_doc_images, background_images):
     return np.random.choice(background_images, num_doc_images)
 
 
-def process_images(document_images, background_images, output_dir, strategy="parallel", workers=cpu_count()):
+def process_images(
+    document_images, background_images, output_dir, strategy="parallel", workers=cpu_count(), use_background_images=True
+):
     logger = logging.getLogger(__name__)
     if strategy == "parallel":
         logger.info(f"Using {workers} workers to process images")
@@ -238,14 +247,20 @@ def process_images(document_images, background_images, output_dir, strategy="par
             annotations = p.starmap(
                 process_image,
                 zip(
-                    document_images, background_images, [output_dir] * len(document_images), range(len(document_images))
+                    document_images,
+                    background_images,
+                    [output_dir] * len(document_images),
+                    range(len(document_images)),
+                    [use_background_images] * len(document_images),
                 ),
             )
     elif strategy == "sequential":
         logger.info("Processing images sequentially")
         annotations = []
         for i in range(len(document_images)):
-            annotation = process_image(document_images[i], background_images[i], output_dir, i)
+            annotation = process_image(
+                document_images[i], background_images[i], output_dir, i, use_background_images=use_background_images
+            )
             if annotation is not None:
                 annotations.append(annotation)
     else:
@@ -269,7 +284,7 @@ def check_data_integrity(final_df):
         return True
 
 
-def main():
+def main(use_background_images=True):
     logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=True)
     logger = logging.getLogger(__name__)
 
@@ -290,7 +305,7 @@ def main():
 
     create_output_dir(output_images_dir)
 
-    document_images = collect_all_files(document_image_dirs)[:100]
+    document_images = collect_all_files(document_image_dirs)[:50]
     background_images = collect_all_files(background_image_dirs)
 
     logger.info(f"Found {len(document_images)} document images")
@@ -298,7 +313,13 @@ def main():
 
     random_background_images = get_random_background_images(len(document_images), background_images)
 
-    annotations = process_images(document_images, random_background_images, output_images_dir, strategy="sequential")
+    annotations = process_images(
+        document_images,
+        random_background_images,
+        output_images_dir,
+        strategy="parallel",
+        use_background_images=use_background_images,
+    )
 
     annotations_df = pd.DataFrame(annotations)
     final_df = split_data(annotations_df)
@@ -308,4 +329,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(use_background_images=False)
