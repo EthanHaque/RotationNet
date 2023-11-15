@@ -30,7 +30,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     annotation : dict
         Dictionary containing the annotation information.
     """
-    #TODO: messy and needs refactoring
+    # TODO: messy and needs refactoring
     logger = logging.getLogger(__name__)
     document_angle_range = (0.0, 360.0)
     background_angle_range = (0.0, 360.0)
@@ -48,8 +48,12 @@ def compose_document_onto_background(document_image, background_image, output_im
     target_background_width = 900
     target_background_height = 1200
 
-    rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(document_image.shape[1], document_image.shape[0], document_angle)
-    rotated_background_width, rotated_background_height = image_utils.get_size_of_rotated_image(background_image.shape[1], background_image.shape[0], background_angle)
+    rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(
+        document_image.shape[1], document_image.shape[0], document_angle
+    )
+    rotated_background_width, rotated_background_height = image_utils.get_size_of_rotated_image(
+        background_image.shape[1], background_image.shape[0], background_angle
+    )
 
     scale_down_factor = np.random.uniform(0.75, 0.95)
     largest_document_side = max(rotated_document_width, rotated_document_height)
@@ -59,14 +63,16 @@ def compose_document_onto_background(document_image, background_image, output_im
     # alpha masking
     document_image = cv2.resize(document_image, (0, 0), fx=scale, fy=scale)
     mask = document_image[:, :, 3]
-  
+
     document_image = image_utils.rotate_image(document_image, document_angle)
     mask = image_utils.rotate_image(mask, document_angle)
 
     random_flip_direciton = np.random.randint(-1, 2)
     background_image = image_utils.flip_image(background_image, random_flip_direciton)
     background_image = image_utils.rotate_image(background_image, background_angle)
-    background_image = image_utils.crop_from_angle(background_image, initial_backgound_width, initial_backgound_height, -background_angle)
+    background_image = image_utils.crop_from_angle(
+        background_image, initial_backgound_width, initial_backgound_height, -background_angle
+    )
 
     random_width_scale = np.random.uniform(1.0, 1.1)
     random_height_scale = np.random.uniform(1.0, 1.1)
@@ -74,12 +80,11 @@ def compose_document_onto_background(document_image, background_image, output_im
     # subtract 1 to avoid out of bounds error
     crop_width = int(target_background_width * random_width_scale)
     crop_width = min(crop_width, background_image.shape[1]) - 1
-    crop_height = int(target_background_height * random_height_scale) 
+    crop_height = int(target_background_height * random_height_scale)
     crop_height = min(crop_height, background_image.shape[0]) - 1
 
     random_crop_x1 = np.random.randint(0, background_image.shape[1] - crop_width)
     random_crop_y1 = np.random.randint(0, background_image.shape[0] - crop_height)
-
 
     background_image = image_utils.crop_image(background_image, random_crop_x1, random_crop_y1, crop_width, crop_height)
     background_image = cv2.resize(background_image, (target_background_width, target_background_height))
@@ -87,7 +92,9 @@ def compose_document_onto_background(document_image, background_image, output_im
     superimposed_image_x = np.random.randint(0, background_image.shape[1] - document_image.shape[1])
     superimposed_image_y = np.random.randint(0, background_image.shape[0] - document_image.shape[0])
 
-    superimposed_image = image_utils.superimpose_image_on_background(document_image, background_image, mask, superimposed_image_x, superimposed_image_y)
+    superimposed_image = image_utils.superimpose_image_on_background(
+        document_image, background_image, mask, superimposed_image_x, superimposed_image_y
+    )
 
     name = uuid.uuid4()
     cv2.imwrite(os.path.join(output_images_dir, f"{name}.jpg"), superimposed_image)
@@ -106,7 +113,6 @@ def compose_document_onto_background(document_image, background_image, output_im
         "crop_height": crop_height,
         "superimposed_image_x": superimposed_image_x,
         "superimposed_image_y": superimposed_image_y,
-
     }
 
     return annotation
@@ -172,12 +178,10 @@ def process_image(image_path, background_path, output_images_dir, index):
         fethered_mask = cv2.GaussianBlur(mask, (blur_radius, blur_radius), 0)
         document_image[:, :, 3] = fethered_mask
 
-
     background_image = cv2.imread(background_path, cv2.IMREAD_UNCHANGED)
     if (background_image.shape[2]) == 3:
         background_image = cv2.cvtColor(background_image, cv2.COLOR_BGR2BGRA)
 
-    
     if background_image.dtype != np.uint8:
         logger.warning(f"Background image {background_path} has dtype {background_image.dtype}")
         return
@@ -187,7 +191,8 @@ def process_image(image_path, background_path, output_images_dir, index):
     annotation["background_image_path"] = background_path
     return annotation
 
-def split_data(df, train_size=0.7, test_size=0.3, val_size=1/3):
+
+def split_data(df, train_size=0.7, test_size=0.3, val_size=1 / 3):
     groups = df["document_image_path"].astype("category").cat.codes
     gss = GroupShuffleSplit(n_splits=1, train_size=train_size, test_size=test_size)
     train_idx, test_val_idx = next(gss.split(df, groups=groups))
@@ -272,6 +277,7 @@ def process_images(document_images, background_images, output_dir, strategy="par
     else:
         raise ValueError(f"Invalid strategy: {strategy}. Valid strategies are 'sequential' and 'parallel'.")
     return [annotation for annotation in annotations if annotation is not None]
+
 
 def save_annotations(final_df, annotations_file):
     logger = logging.getLogger(__name__)
