@@ -66,7 +66,7 @@ def save_image(image, output_images_dir):
     return f"{name}.jpg"
 
 
-def modular_compose_document_onto_background(document_image, background_image, output_images_dir):
+def compose_document_onto_background(document_image, background_image, output_images_dir):
     config = {
         "document_scale_range": (0.75, 1.1),
         "background_scale_range": (1.0, 1.1),
@@ -92,105 +92,6 @@ def modular_compose_document_onto_background(document_image, background_image, o
     name = save_image(superimposed_image, output_images_dir)
 
     annotation = {"image_name": f"{name}", "document_angle": document_angle}
-
-    return annotation
-
-
-def compose_document_onto_background(document_image, background_image, output_images_dir):
-    """
-    Composes a document image onto a background image applying a series
-    of transformations to the document image and the background image.
-
-    Parameters
-    ----------
-    document_image : numpy.ndarray
-        Document image to be composed onto the background image.
-    background_image : numpy.ndarray
-        Background image.
-    output_dir : str
-        Output directory where the composed image will be saved.
-
-    Returns
-    -------
-    annotation : dict
-        Dictionary containing the annotation information.
-    """
-    # TODO: messy and needs refactoring
-    logger = logging.getLogger(__name__)
-    document_angle_range = (0.0, 360.0)
-    background_angle_range = (0.0, 360.0)
-
-    # randomly scaling the document image and changing aspect ratio
-    random_x_scale = np.random.uniform(0.75, 1.1)
-    random_y_scale = np.random.uniform(0.75, 1.1)
-    document_image = cv2.resize(document_image, (0, 0), fx=random_x_scale, fy=random_y_scale)
-
-    # getting the size of the background
-    initial_backgound_height, initial_backgound_width = background_image.shape[:2]
-
-    # getting random angles for the document and the background
-    document_angle = np.random.uniform(*document_angle_range) * np.pi / 180.0
-    background_angle = np.random.uniform(*background_angle_range) * np.pi / 180.0
-    # Setting the target size of the background (output image)
-    target_background_width = 900
-    target_background_height = 1200
-
-    # getting the size of the document after rotation
-    rotated_document_width, rotated_document_height = image_utils.get_size_of_rotated_image(
-        document_image.shape[1], document_image.shape[0], document_angle
-    )
-
-    # scaling the document image to fit the background
-    scale_down_factor = np.random.uniform(0.75, 0.95)
-    largest_document_side = max(rotated_document_width, rotated_document_height)
-    smallest_target_size = min(target_background_width, target_background_height)
-    scale = scale_down_factor * smallest_target_size / largest_document_side
-
-    # alpha masking
-    document_image = cv2.resize(document_image, (0, 0), fx=scale, fy=scale)
-    mask = document_image[:, :, 3]
-
-    document_image = image_utils.rotate_image(document_image, document_angle)
-    mask = image_utils.rotate_image(mask, document_angle)
-
-    # applying flip, rotation, and cropping to the background image
-    random_flip_direciton = np.random.randint(-1, 2)
-    background_image = image_utils.flip_image(background_image, random_flip_direciton)
-    background_image = image_utils.rotate_image(background_image, background_angle)
-    background_image = image_utils.crop_from_angle(
-        background_image, initial_backgound_width, initial_backgound_height, -background_angle
-    )
-
-    random_width_scale = np.random.uniform(1.0, 1.1)
-    random_height_scale = np.random.uniform(1.0, 1.1)
-
-    # subtract 1 to avoid out of bounds error
-    crop_width = int(target_background_width * random_width_scale)
-    crop_width = min(crop_width, background_image.shape[1]) - 1
-    crop_height = int(target_background_height * random_height_scale)
-    crop_height = min(crop_height, background_image.shape[0]) - 1
-
-    random_crop_x1 = np.random.randint(0, background_image.shape[1] - crop_width)
-    random_crop_y1 = np.random.randint(0, background_image.shape[0] - crop_height)
-
-    # Background images are large, so we crop them to target size after applying all the transformations
-    background_image = image_utils.crop_image(background_image, random_crop_x1, random_crop_y1, crop_width, crop_height)
-    background_image = cv2.resize(background_image, (target_background_width, target_background_height))
-
-    # coordinates of the top left corner of the document image on the background image
-    superimposed_image_x = np.random.randint(0, background_image.shape[1] - document_image.shape[1])
-    superimposed_image_y = np.random.randint(0, background_image.shape[0] - document_image.shape[0])
-
-    # superimposing the document image on the background image
-    superimposed_image = image_utils.superimpose_image_on_background(
-        document_image, background_image, mask, superimposed_image_x, superimposed_image_y
-    )
-
-    # saving the image
-    name = uuid.uuid4()
-    cv2.imwrite(os.path.join(output_images_dir, f"{name}.jpg"), superimposed_image)
-
-    annotation = {"image_name": f"{name}.jpg", "document_angle": document_angle}
 
     return annotation
 
