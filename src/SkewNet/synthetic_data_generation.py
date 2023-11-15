@@ -300,7 +300,7 @@ def main(use_background_images=True):
     logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=True)
     logger = logging.getLogger(__name__)
 
-    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/test.csv"
+    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_no_background.csv"
 
     document_image_dirs = [
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images",
@@ -313,7 +313,7 @@ def main(use_background_images=True):
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures",
     ]
 
-    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/test"
+    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_no_background"
 
     create_output_dir(output_images_dir)
 
