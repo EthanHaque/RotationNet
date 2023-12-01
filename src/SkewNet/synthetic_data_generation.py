@@ -75,7 +75,8 @@ def preprocess_background(background_image, config):
 
 def save_image(image, output_images_dir):
     name = uuid.uuid4()
-    cv2.imwrite(os.path.join(output_images_dir, f"{name}.jpg"), image)
+    output_path = os.path.join(output_images_dir, f"{name}.jpg")
+    cv2.imwrite(output_path, image)
     return f"{name}.jpg"
 
 
