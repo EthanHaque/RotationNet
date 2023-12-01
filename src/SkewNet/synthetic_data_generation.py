@@ -84,7 +84,7 @@ def compose_document_onto_background(document_image, background_image, output_im
     config = {
         "document_scale_range": (0.75, 1.1),
         "background_scale_range": (1.0, 1.1),
-        "document_angle_range": (0.0, 360.0),
+        "document_angle_range": (-30.0, 30.0),
         "background_angle_range": (0.0, 360.0),
         "document_scale_down_factor_range": (0.75, 0.95),
         "backround_target_dimensions": (900, 1200),
@@ -111,7 +111,7 @@ def compose_document_onto_background(document_image, background_image, output_im
 
 
 def compose_document_with_no_background(document_image, output_images_dir):
-    config = {"document_angle_range": (-30.0, 30.0), "backround_target_dimensions": (2000, 2000)}
+    config = {"document_angle_range": (0.0, 360.0), "backround_target_dimensions": (2000, 2000)}
 
     document_image, mask, document_angle = preprocess_document_with_no_background(document_image, config)
     background_image = np.ones(config["backround_target_dimensions"] + (4,), dtype=np.uint8) * 255
