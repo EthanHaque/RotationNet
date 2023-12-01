@@ -110,7 +110,7 @@ def compose_document_onto_background(document_image, background_image, output_im
 
 
 def compose_document_with_no_background(document_image, output_images_dir):
-    config = {"document_angle_range": (0.0, 360.0), "backround_target_dimensions": (2000, 2000)}
+    config = {"document_angle_range": (-30.0, 30.0), "backround_target_dimensions": (2000, 2000)}
 
     document_image, mask, document_angle = preprocess_document_with_no_background(document_image, config)
     background_image = np.ones(config["backround_target_dimensions"] + (4,), dtype=np.uint8) * 255
@@ -300,30 +300,42 @@ def main(use_background_images=True):
     logging_utils.setup_logging("synthetic_data_generation", log_level=logging_utils.logging.INFO, log_to_stdout=True)
     logger = logging.getLogger(__name__)
 
-    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_no_background.csv"
+    annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles.csv"
 
-    document_image_dirs = [
-        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images",
-        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images",
-        "/scratch/gpfs/RUSTOW/deskewing_datasets/images/publaynet/train",
-    ]
+
+    cudl_duplication_factor = 20
+    doc_lay_net_duplication_factor = 1
+    publaynet_duplication_factor = 1
+
+    cudl_image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/cudl_images/rotated_images"
+    doc_lay_net_image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/doc_lay_net/images"
+    publaynet_image_dir = "/scratch/gpfs/RUSTOW/deskewing_datasets/images/publaynet/train"
+
+    cudl_images = collect_files(cudl_image_dir)
+    doc_lay_net_images = collect_files(doc_lay_net_image_dir)
+    publaynet_images = collect_files(publaynet_image_dir)
+
+    cudl_images = cudl_images * cudl_duplication_factor
+    doc_lay_net_images = doc_lay_net_images * doc_lay_net_duplication_factor
+    publaynet_images = publaynet_images * publaynet_duplication_factor
+
+    document_images = cudl_images + doc_lay_net_images + publaynet_images
+
 
     background_image_dirs = [
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja",
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures",
     ]
-
-    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_no_background"
-
-    create_output_dir(output_images_dir)
-
-    document_images = collect_all_files(document_image_dirs)
     background_images = collect_all_files(background_image_dirs)
+    random_background_images = get_random_background_images(len(document_images), background_images)
+
+
+    output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
+
 
     logger.info(f"Found {len(document_images)} document images")
     logger.info(f"Found {len(background_images)} background images")
 
-    random_background_images = get_random_background_images(len(document_images), background_images)
 
     annotations = process_images(
         document_images,
