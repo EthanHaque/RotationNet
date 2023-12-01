@@ -1,14 +1,14 @@
 {
     "data_config": {
-        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles_full_data.csv",
-        "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_full/",
+        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv",
+        "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
         "truncate": 1.0,
         "min_angle": 0,
         "max_angle": 0.5
     },
     "model": "MobileNetV3Backbone",
     "optimizer_config": {
-        "learning_rate": 0.0005,
+        "learning_rate": 0.004,
         "weight_decay": 0
     },
     "scheduler_config": {
@@ -21,9 +21,9 @@
         "data_loader_prefetch_factor": 2,
         "evaluate": true,
         "grad_norm_clip": 1.0,
-        "max_epochs": 200,
+        "max_epochs": 50,
         "snapshot_dir": "/scratch/gpfs/eh0560/SkewNet/snapshots",
-        "snapshot_interval": 15,
+        "snapshot_interval": 10,
         "resume": false,
         "snapshot_path": "",
         "snapshot_prefix": "",
