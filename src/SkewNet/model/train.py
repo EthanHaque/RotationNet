@@ -411,6 +411,7 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
     # train_transform = transforms.Compose(
     #     [transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2)]
     # )
+    train_transform = transforms.Compose([])
 
     def remap_angle(angle):
         if angle > torch.pi:
@@ -418,8 +419,7 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
         return angle
 
     train_dataset, val_dataset, _ = setup_data_loaders(
-        # data_config, train_transform=train_transform, target_transform=remap_angle
-        data_config, target_transform=remap_angle
+        data_config, train_transform=train_transform, target_transform=remap_angle
     )
     return model, criterion, optimizer, scheduler, train_dataset, val_dataset
 
