@@ -355,9 +355,9 @@ def taylor_expansion_of_cosine_loss(y_pred, y_true, scale=1):
 
 
 def setup_optimizer(model, learning_rate, weight_decay):
-    # optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     # TODO: remove this
-    optimizer = torch.optim.AdamW(model.parameters(), lr=0.004, betas=(0.9, 0.999), weight_decay=0.05)
+    # optimizer = torch.optim.AdamW(model.parameters(), lr=0.004, betas=(0.9, 0.999), weight_decay=0.05)
     return optimizer
 
 
