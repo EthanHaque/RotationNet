@@ -303,7 +303,6 @@ def main(use_background_images=True):
 
     annotations_file = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles.csv"
 
-
     cudl_duplication_factor = 20
     doc_lay_net_duplication_factor = 1
     publaynet_duplication_factor = 1
@@ -322,6 +321,7 @@ def main(use_background_images=True):
 
     document_images = cudl_images + doc_lay_net_images + publaynet_images
 
+    document_images = document_images[:100]
 
     background_image_dirs = [
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja",
@@ -330,13 +330,11 @@ def main(use_background_images=True):
     background_images = collect_all_files(background_image_dirs)
     random_background_images = get_random_background_images(len(document_images), background_images)
 
-
     output_images_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
-
+    create_output_dir(output_images_dir)
 
     logger.info(f"Found {len(document_images)} document images")
     logger.info(f"Found {len(background_images)} background images")
-
 
     annotations = process_images(
         document_images,
@@ -354,4 +352,4 @@ def main(use_background_images=True):
 
 
 if __name__ == "__main__":
-    main(use_background_images=False)
+    main(use_background_images=True)
