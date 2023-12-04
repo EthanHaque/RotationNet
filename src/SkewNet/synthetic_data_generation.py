@@ -321,8 +321,6 @@ def main(use_background_images=True):
 
     document_images = cudl_images + doc_lay_net_images + publaynet_images
 
-    document_images = document_images[:100]
-
     background_image_dirs = [
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/texture_ninja",
         "/scratch/gpfs/RUSTOW/deskewing_datasets/images/pexels_textures",
