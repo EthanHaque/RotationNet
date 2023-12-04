@@ -32,13 +32,9 @@ class RotatedImageDataset(Dataset):
         self.img_labels = self.img_labels[self.img_labels["split"] == subset]
 
         # normalize angles to range [0, 2pi]
-        self.img_labels["document_angle"] = self.img_labels["document_angle"] % (2 * np.pi)
+        # self.img_labels["document_angle"] = self.img_labels["document_angle"] % (2 * np.pi)
         min_angle = data_config.min_angle
         max_angle = data_config.max_angle
-        if min_angle < 0:
-            min_angle = min_angle % (2 * np.pi)
-        if max_angle < 0 or max_angle > 2 * np.pi:
-            max_angle = max_angle % (2 * np.pi)
 
         if min_angle > max_angle:
             self.img_labels = self.img_labels[
