@@ -109,7 +109,7 @@ def run_profiling(config):
 def main():
     config = ProfilingConfig(
         img_dir="/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data",
-        annotations_file="/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv",
+        annotations_file="/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles.csv",
         subset="val",  # or "train" or "test"
         batch_sizes=[16, 32, 48, 64, 96],
         num_workers=[16, 20],

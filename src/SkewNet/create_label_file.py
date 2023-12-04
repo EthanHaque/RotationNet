@@ -141,6 +141,6 @@ def main(json_directory, image_directory, output_csv):
 if __name__ == "__main__":
     json_directory = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_annotations"
     image_directory = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data"
-    output_csv = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_image_angles.csv"
+    output_csv = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles.csv"
 
     main(json_directory, image_directory, output_csv)
