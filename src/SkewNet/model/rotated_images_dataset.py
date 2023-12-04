@@ -37,7 +37,7 @@ class RotatedImageDataset(Dataset):
         max_angle = data_config.max_angle
         if min_angle < 0:
             min_angle = min_angle % (2 * np.pi)
-        if max_angle < 0:
+        if max_angle < 0 or max_angle > 2 * np.pi:
             max_angle = max_angle % (2 * np.pi)
 
         if min_angle > max_angle:
