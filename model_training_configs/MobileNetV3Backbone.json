@@ -1,6 +1,6 @@
 {
     "data_config": {
-        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles.csv",
+        "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles_no_cudl.csv",
         "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
         "truncate": 1.0,
         "min_angle": -0.1309,
