@@ -27,4 +27,4 @@ torchrun \
 --nproc_per_node 1 \
 /scratch/gpfs/eh0560/SkewNet/src/SkewNet/model/train.py \
 $uid \
-/scratch/gpfs/eh0560/SkewNet/model_training_configs/MobileNetV3Backbone.json
+/scratch/gpfs/eh0560/SkewNet/model_training_configs/MobileNetV3LargeManualTest.json
