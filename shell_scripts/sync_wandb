@@ -1,0 +1,2 @@
+wandb sync --include-offline /scratch/gpfs/eh0560/SkewNet/logs/wandb/offline-*
+rm -rf /scratch/gpfs/eh0560/SkewNet/logs/wandb/*
