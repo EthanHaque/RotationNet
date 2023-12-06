@@ -31,8 +31,6 @@ class RotatedImageDataset(Dataset):
         self.img_labels = pd.read_csv(annotations_file)
         self.img_labels = self.img_labels[self.img_labels["split"] == subset]
 
-        # normalize angles to range [0, 2pi]
-        # self.img_labels["document_angle"] = self.img_labels["document_angle"] % (2 * np.pi)
         min_angle = data_config.min_angle
         max_angle = data_config.max_angle
 
