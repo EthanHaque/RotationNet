@@ -41,7 +41,6 @@ class TrainConfig:
     logdir: str = "/scratch/gpfs/eh0560/SkewNet/logs"
 
 
-
 @dataclass
 class SnapshotConfig:
     model_state: dict
@@ -65,7 +64,18 @@ class SchedulerConfig:
 
 
 class Trainer:
-    def __init__(self, trainer_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset=None):
+    def __init__(
+        self,
+        trainer_config,
+        model,
+        criterion,
+        optimizer,
+        scheduler,
+        train_dataset,
+        runID,
+        val_dataset=None,
+        test_dataset=None,
+    ):
         if trainer_config.evaluate and not val_dataset:
             raise ValueError("Validation dataset must be provided when in evaluation mode")
         if not trainer_config.evaluate and val_dataset:
@@ -90,6 +100,7 @@ class Trainer:
         self.train_dataset = train_dataset
         self.train_loader = self._prepare_distributed_dataloader(train_dataset)
         self.val_loader = self._prepare_distributed_dataloader(val_dataset) if val_dataset else None
+        self.test_loader = self._prepare_distributed_dataloader(test_dataset) if test_dataset else None
 
         self.epochs_run = 0
         self.best_loss = float("inf")
@@ -199,7 +210,7 @@ class Trainer:
 
             self.scheduler.step()
             print(
-                f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Train Loss: {loss:.5f} | Train MAE: {mae:.5f}"
+                f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Train Loss: {loss:.8f} | Train MAE: {mae:.8f}"
             )
 
         return loss, mae
@@ -218,7 +229,7 @@ class Trainer:
         average_loss = (running_metrics[0] / running_metrics[2]).item()
         average_mae = (running_metrics[1] / running_metrics[2]).item()
         if self.global_rank == 0:
-            print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.5f} | Train MAE: {average_mae:.5f}")
+            print(f"EPOCH {self.epochs_run} | Train Loss: {average_loss:.8f} | Train MAE: {average_mae:.8f}")
 
         return average_loss, average_mae
 
@@ -229,7 +240,7 @@ class Trainer:
             y_hat = self.model(x)
             loss, mae = self._calculate_metrics(y_hat, y)
             print(
-                f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Val Loss: {loss:.5f} | Val MAE: {mae:.5f}"
+                f"GPU {self.global_rank} | EPOCH {self.epochs_run} | Batch {batch_idx} | Val Loss: {loss:.8f} | Val MAE: {mae:.8f}"
             )
 
             if batch_idx == 0 and self.global_rank == 0:
@@ -241,7 +252,8 @@ class Trainer:
                 rotated_images = torch.stack([rotate(img, -angle.item()) for img, angle in zip(x, y_hat_rad_to_deg)])
                 x = torch.cat([x, rotated_images])
                 grid = make_grid(x, nrow=4, normalize=True)
-                self.run.log({"examples": [wandb.Image(grid)]}, step=self.epochs_run)
+                if self.config.profile:
+                    self.run.log({"examples": [wandb.Image(grid)]}, step=self.epochs_run)
 
             return loss, mae
 
@@ -259,9 +271,12 @@ class Trainer:
         average_loss = (running_metrics[0] / running_metrics[2]).item()
         average_mae = (running_metrics[1] / running_metrics[2]).item()
         if self.global_rank == 0:
-            print(f"EPOCH {self.epochs_run} | Val Loss: {average_loss:.5f} | Val MAE: {average_mae:.5f}")
+            print(f"EPOCH {self.epochs_run} | Val Loss: {average_loss:.8f} | Val MAE: {average_mae:.8f}")
 
         return average_loss, average_mae
+
+    def test(self):
+        self._validate(0, self.test_loader)
 
     def fit(self):
         for epoch in range(self.epochs_run, self.config.max_epochs):
@@ -403,8 +418,13 @@ def setup_config(config):
     return train_config, optimizer_config, scheduler_config, data_config
 
 
-def get_train_objects(model, optimizer_config, scheduler_config, data_config):
-    model = ModelRegistry.get_model(model)
+def get_train_objects(model, optimizer_config, scheduler_config, data_config, train_config):
+    if train_config.snapshot_path:
+        model = ModelRegistry.get_model(model)
+        model.load_state_dict(torch.load(train_config.snapshot_path).model_state)
+    else:
+        model = ModelRegistry.get_model(model)
+
     criterion = setup_criterion()
     optimizer = setup_optimizer(model, optimizer_config.learning_rate, optimizer_config.weight_decay)
     scheduler = setup_scheduler(optimizer, scheduler_config.T_max, scheduler_config.eta_min)
@@ -414,10 +434,10 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
     train_transform = transforms.Compose([])
     target_transforms = transforms.Compose([])
 
-    train_dataset, val_dataset, _ = setup_data_loaders(
+    train_dataset, val_dataset, test_dataset = setup_data_loaders(
         data_config, train_transform=train_transform, target_transform=target_transforms
     )
-    return model, criterion, optimizer, scheduler, train_dataset, val_dataset
+    return model, criterion, optimizer, scheduler, train_dataset, val_dataset, test_dataset
 
 
 def ddp_setup():
@@ -436,16 +456,18 @@ def main():
 
     train_config, optimizer_config, scheduler_config, data_config = setup_config(config)
 
-    model, criterion, optimizer, scheduler, train_dataset, val_dataset = get_train_objects(
-        config["model"], optimizer_config, scheduler_config, data_config
+    model, criterion, optimizer, scheduler, train_dataset, val_dataset, test_dataset = get_train_objects(
+        config["model"], optimizer_config, scheduler_config, data_config, train_config
     )
 
-    trainer = Trainer(train_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset)
+    trainer = Trainer(
+        train_config, model, criterion, optimizer, scheduler, train_dataset, runID, val_dataset, test_dataset
+    )
 
     if args.dryrun:
         trainer.profile()
     elif train_config.test:
-        trainer._validate(0, trainer.train_loader)
+        trainer.test()
     else:
         trainer.fit()
 
