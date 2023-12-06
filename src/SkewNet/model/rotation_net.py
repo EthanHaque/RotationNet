@@ -167,7 +167,7 @@ class InvertedResidual(nn.Module):
 
 @ModelRegistry.register("MobileNetV3LargeManualTest")
 class MobileNetV3(nn.Module):
-    def __init__(self, num_classes=1000, width_mult=1.0):
+    def __init__(self, width_mult=1.0):
         super(MobileNetV3, self).__init__()
         # setting of inverted residual blocks
         self.cfgs = [
@@ -203,8 +203,6 @@ class MobileNetV3(nn.Module):
         # building last several layers
         self.conv = conv_1x1_bn(input_channel, exp_size)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        output_channel = 1280
-        output_channel = _make_divisible(output_channel * width_mult, 8) if width_mult > 1.0 else output_channel
         self.regression = nn.Sequential(nn.Linear(exp_size, 1))
 
         self._initialize_weights()
