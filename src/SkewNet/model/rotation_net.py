@@ -170,7 +170,6 @@ class MobileNetV3(nn.Module):
     def __init__(self, num_classes=1000, width_mult=1.0):
         super(MobileNetV3, self).__init__()
         # setting of inverted residual blocks
-        mode = "large"
         self.cfgs = [
             # k, t, c, SE, HS, s
             [3, 1, 16, 0, 0, 1],
@@ -189,7 +188,6 @@ class MobileNetV3(nn.Module):
             [5, 6, 160, 1, 1, 1],
             [5, 6, 160, 1, 1, 1],
         ]
-        assert mode in ["large", "small"]
 
         # building first layer
         input_channel = _make_divisible(16 * width_mult, 8)
