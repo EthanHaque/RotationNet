@@ -355,12 +355,12 @@ def taylor_expansion_of_cosine_loss(y_pred, y_true, scale=1):
 
 
 def setup_optimizer(model, learning_rate, weight_decay):
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     return optimizer
 
 
-def setup_scheduler(optimizer, step_size, gamma):
-    scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=step_size, gamma=gamma)
+def setup_scheduler(optimizer, T_max, eta_min=0):
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=T_max, eta_min=eta_min)
     return scheduler
 
 
@@ -405,7 +405,7 @@ def get_train_objects(model, optimizer_config, scheduler_config, data_config):
     model = ModelRegistry.get_model(model)
     criterion = setup_criterion()
     optimizer = setup_optimizer(model, optimizer_config.learning_rate, optimizer_config.weight_decay)
-    scheduler = setup_scheduler(optimizer, scheduler_config.step_size, scheduler_config.gamma)
+    scheduler = setup_scheduler(optimizer, scheduler_config.T_max, scheduler_config.eta_min)
     # train_transform = transforms.Compose(
     #     [transforms.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.2)]
     # )
