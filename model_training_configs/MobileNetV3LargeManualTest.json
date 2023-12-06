@@ -3,8 +3,8 @@
         "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles_no_cudl.csv",
         "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
         "truncate": 0.5,
-        "min_angle": -0.1309,
-        "max_angle": 0.1309
+        "min_angle": -7,
+        "max_angle": 7
     },
     "model": "MobileNetV3LargeManualTest",
     "optimizer_config": {
@@ -20,6 +20,7 @@
         "data_loader_num_workers": 8,
         "data_loader_prefetch_factor": 2,
         "evaluate": true,
+        "test": false,
         "grad_norm_clip": 1.0,
         "max_epochs": 20,
         "snapshot_dir": "/scratch/gpfs/eh0560/SkewNet/snapshots",

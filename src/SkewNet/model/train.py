@@ -24,6 +24,7 @@ from SkewNet.model.rotation_net import ModelRegistry
 @dataclass
 class TrainConfig:
     evaluate: bool = True
+    test: bool = False
     start_epoch: int = 0
     max_epochs: int = 20
     batch_size: int = 64
