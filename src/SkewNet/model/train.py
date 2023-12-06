@@ -58,8 +58,8 @@ class OptimizerConfig:
 
 @dataclass
 class SchedulerConfig:
-    step_size: int
-    gamma: float
+    T_max: int
+    eta_min: float
 
 
 class Trainer:
