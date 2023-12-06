@@ -3,6 +3,8 @@ import torch.nn as nn
 from torchvision.models import mobilenet_v3_large, resnet50, convnext_tiny
 import torchvision.transforms as transforms
 
+import math
+
 
 class ModelRegistry:
     registry = {}
