@@ -2,7 +2,7 @@
     "data_config": {
         "annotations_file": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles_no_cudl.csv",
         "img_dir": "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
-        "truncate": 1.0,
+        "truncate": 0.5,
         "min_angle": -0.1309,
         "max_angle": 0.1309
     },
@@ -16,12 +16,12 @@
         "eta_min": 0.00001
     },
     "train_config": {
-        "batch_size": 112,
-        "data_loader_num_workers": 10,
+        "batch_size": 64,
+        "data_loader_num_workers": 8,
         "data_loader_prefetch_factor": 2,
         "evaluate": true,
         "grad_norm_clip": 1.0,
-        "max_epochs": 50,
+        "max_epochs": 20,
         "snapshot_dir": "/scratch/gpfs/eh0560/SkewNet/snapshots",
         "snapshot_interval": 10,
         "resume": false,
