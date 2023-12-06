@@ -205,13 +205,9 @@ class MobileNetV3(nn.Module):
         # building last several layers
         self.conv = conv_1x1_bn(input_channel, exp_size)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
-        output_channel = {"large": 1280, "small": 1024}
-        output_channel = (
-            _make_divisible(output_channel[mode] * width_mult, 8) if width_mult > 1.0 else output_channel[mode]
-        )
-        self.regression = nn.Sequential(
-            nn.Linear(exp_size, 1)
-        )
+        output_channel = 1280
+        output_channel = _make_divisible(output_channel * width_mult, 8) if width_mult > 1.0 else output_channel
+        self.regression = nn.Sequential(nn.Linear(exp_size, 1))
 
         self._initialize_weights()
 
