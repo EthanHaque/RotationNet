@@ -41,6 +41,7 @@ class TrainConfig:
     logdir: str = "/scratch/gpfs/eh0560/SkewNet/logs"
 
 
+
 @dataclass
 class SnapshotConfig:
     model_state: dict
@@ -443,6 +444,8 @@ def main():
 
     if args.dryrun:
         trainer.profile()
+    elif train_config.test:
+        trainer._validate(0, trainer.train_loader)
     else:
         trainer.fit()
 
