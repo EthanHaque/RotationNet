@@ -110,12 +110,12 @@ class SELayer(nn.Module):
         return x * y
 
 
-def conv_3x3_bn(inp, oup, stride):
-    return nn.Sequential(nn.Conv2d(inp, oup, 3, stride, 1, bias=False), nn.BatchNorm2d(oup), h_swish())
+def conv_3x6_bn(inp, oup, stride):
+    return nn.Sequential(nn.Conv2d(inp, oup, (3, 9), (stride, stride), (1,4), bias=False), nn.BatchNorm2d(oup), h_swish())
 
 
-def conv_1x1_bn(inp, oup):
-    return nn.Sequential(nn.Conv2d(inp, oup, 1, 1, 0, bias=False), nn.BatchNorm2d(oup), h_swish())
+def conv_1x2_bn(inp, oup):
+    return nn.Sequential(nn.Conv2d(inp, oup, (1, 2), (1, 1), 0, bias=False), nn.BatchNorm2d(oup), h_swish())
 
 
 class InvertedResidual(nn.Module):
@@ -126,41 +126,38 @@ class InvertedResidual(nn.Module):
         self.identity = stride == 1 and inp == oup
 
         if inp == hidden_dim:
-            self.conv = nn.Sequential(
-                # dw
-                nn.Conv2d(
-                    hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim, bias=False
-                ),
-                nn.BatchNorm2d(hidden_dim),
-                h_swish() if use_hs else nn.ReLU(inplace=True),
-                # Squeeze-and-Excite
-                SELayer(hidden_dim) if use_se else nn.Identity(),
-                # pw-linear
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-            )
+            conv1 = nn.Conv2d(hidden_dim, hidden_dim, (kernel_size, kernel_size * 3), (stride, stride), ((kernel_size - 1) //2, (kernel_size *  3 * 2 - 1) // 2), groups=hidden_dim, bias=False)
+            batch_norm1 = nn.BatchNorm2d(hidden_dim)
+            activation = h_swish() if use_hs else nn.ReLU(inplace=True)
+            se = SELayer(hidden_dim) if use_se else nn.Identity()
+            conv2 = nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False)
+            batch_norm2 = nn.BatchNorm2d(oup)
+
+            self.conv = nn.Sequential(conv1, batch_norm1, activation, se, conv2, batch_norm2)
+
         else:
-            self.conv = nn.Sequential(
-                # pw
-                nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(hidden_dim),
-                h_swish() if use_hs else nn.ReLU(inplace=True),
-                # dw
-                nn.Conv2d(
-                    hidden_dim, hidden_dim, kernel_size, stride, (kernel_size - 1) // 2, groups=hidden_dim, bias=False
-                ),
-                nn.BatchNorm2d(hidden_dim),
-                # Squeeze-and-Excite
-                SELayer(hidden_dim) if use_se else nn.Identity(),
-                h_swish() if use_hs else nn.ReLU(inplace=True),
-                # pw-linear
-                nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False),
-                nn.BatchNorm2d(oup),
-            )
+            conv1 = nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False)
+            batch_norm1 = nn.BatchNorm2d(hidden_dim)
+            activation1 = h_swish() if use_hs else nn.ReLU(inplace=True)
+            conv2 = nn.Conv2d(hidden_dim, hidden_dim, (kernel_size, kernel_size * 2), (stride, stride), ((kernel_size // 2) - 1, kernel_size - 1), groups=hidden_dim, bias=False)
+            batch_norm2 = nn.BatchNorm2d(hidden_dim)
+            se = SELayer(hidden_dim) if use_se else nn.Identity()
+            activation2 = h_swish() if use_hs else nn.ReLU(inplace=True)
+            conv3 = nn.Conv2d(hidden_dim, oup, 1, 1, 0, bias=False)
+            batch_norm3 = nn.BatchNorm2d(oup)
+
+            self.conv = nn.Sequential(conv1, batch_norm1, activation1, conv2, batch_norm2, se, activation2, conv3, batch_norm3)
 
     def forward(self, x):
         if self.identity:
-            return x + self.conv(x)
+            # return x + self.conv(x)
+            output = x
+            for layer in self.conv:
+                print(f"layer: {layer} with input shape: {output.shape}")
+                output = layer(output)
+            print(f"output shape: {output.shape}")
+            print(f"x shape: {x.shape}")
+            return x + output
         else:
             return self.conv(x)
 
@@ -191,7 +188,7 @@ class MobileNetV3(nn.Module):
 
         # building first layer
         input_channel = _make_divisible(16 * width_mult, 8)
-        layers = [conv_3x3_bn(3, input_channel, 2)]
+        layers = [conv_3x6_bn(3, input_channel, 2)]
         # building inverted residual blocks
         block = InvertedResidual
         for k, t, c, use_se, use_hs, s in self.cfgs:
@@ -201,8 +198,9 @@ class MobileNetV3(nn.Module):
             input_channel = output_channel
         self.features = nn.Sequential(*layers)
         # building last several layers
-        self.conv = conv_1x1_bn(input_channel, exp_size)
+        self.conv = conv_1x2_bn(input_channel, exp_size)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
+        self.flatten = nn.Flatten()
         self.regression = nn.Sequential(nn.Linear(exp_size, 1))
 
         self._initialize_weights()
@@ -211,7 +209,7 @@ class MobileNetV3(nn.Module):
         x = self.features(x)
         x = self.conv(x)
         x = self.avgpool(x)
-        x = x.view(x.size(0), -1)
+        x = self.flatten(x)
         x = self.regression(x)
         return x
 
