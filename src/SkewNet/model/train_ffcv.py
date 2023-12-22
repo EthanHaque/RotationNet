@@ -28,6 +28,7 @@ from ffcv.fields.basics import FloatDecoder
 from ffcv.transforms import ToTensor, ToTorchImage, Squeeze, ToDevice
 from ffcv.loader import Loader, OrderOption
 
+
 @dataclass
 class TrainConfig:
     evaluate: bool = True
@@ -71,15 +72,7 @@ class SchedulerConfig:
 
 
 class Trainer:
-    def __init__(
-        self,
-        trainer_config,
-        model,
-        criterion,
-        optimizer,
-        scheduler,
-        runID,
-    ):
+    def __init__(self, trainer_config, model, criterion, optimizer, scheduler, runID):
         if not trainer_config.snapshot_dir:
             raise ValueError("No snapshot directory provided.")
 
@@ -99,10 +92,15 @@ class Trainer:
         self.optimizer = optimizer
         self.scheduler = scheduler
 
-        self.train_loader = self.setup_ffcv_train_loader("/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/train", num_workers, batch_size)
-        self.val_loader = self.setup_ffcv_eval_loader("/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/val", num_workers, batch_size)
-        self.test_loader = self.setup_ffcv_eval_loader("/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/test", num_workers, batch_size)
-
+        self.train_loader = self.setup_ffcv_train_loader(
+            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/train", num_workers, batch_size
+        )
+        self.val_loader = self.setup_ffcv_eval_loader(
+            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/val", num_workers, batch_size
+        )
+        self.test_loader = self.setup_ffcv_eval_loader(
+            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/test", num_workers, batch_size
+        )
 
         self.train_dataset = self.train_loader
         self.val_dataset = self.val_loader
@@ -152,7 +150,6 @@ class Trainer:
             print(f"Epochs {self.config.max_epochs}")
             print(f"Criterion {self.criterion.__name__}")
 
-
     def _load_snapshot(self, snapshot_path):
         try:
             snapshot = torch.load(snapshot_path)
@@ -190,7 +187,6 @@ class Trainer:
             device_type="cuda", dtype=torch.float16, enabled=self.config.use_automatic_mixed_precision
         ):
             x, y = batch
-            print(x, y)
             y_hat = self.model(x)
             loss, mae = self._calculate_metrics(y_hat, y)
             self.optimizer.zero_grad(set_to_none=True)
@@ -315,12 +311,11 @@ class Trainer:
 
         print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=15))
 
-
     def setup_ffcv_train_loader(self, train_dataset_path, num_workers, batch_size, distributed=True, pin_memory=True):
         image_pipeline = [
             SimpleRGBImageDecoder(),
             ToTensor(),
-            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}")),
+            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
             ToTorchImage(),
         ]
 
@@ -328,55 +323,51 @@ class Trainer:
             FloatDecoder(),
             ToTensor(),
             Squeeze(),
-            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}")),
+            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
         ]
 
         order = OrderOption.RANDOM if distributed else OrderOption.QUASI_RANDOM
-        loader = Loader(Path(train_dataset_path),
-                        batch_size=batch_size,
-                        num_workers=num_workers,
-                        order=order,
-                        os_cache=pin_memory,
-                        drop_last=True,
-                        pipelines={
-                            "image": image_pipeline,
-                            "document_angle": label_pipeline
-                        },
-                        distributed=distributed)
+        loader = Loader(
+            Path(train_dataset_path),
+            batch_size=batch_size,
+            num_workers=num_workers,
+            order=order,
+            os_cache=pin_memory,
+            drop_last=True,
+            pipelines={"image": image_pipeline, "document_angle": label_pipeline},
+            distributed=distributed,
+        )
 
         return loader
 
-    
     def setup_ffcv_eval_loader(self, eval_dataset_path, num_workers, batch_size, distributed=True, pin_memory=True):
         image_pipeline = [
             SimpleRGBImageDecoder(),
             ToTensor(),
             ToTorchImage(),
-            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"))
+            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
         ]
 
         label_pipeline = [
             FloatDecoder(),
             ToTensor(),
             Squeeze(),
-            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"))
+            ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
         ]
 
         order = OrderOption.RANDOM if distributed else OrderOption.QUASI_RANDOM
-        loader = Loader(Path(eval_dataset_path),
-                        batch_size=batch_size,
-                        num_workers=num_workers,
-                        order=order,
-                        os_cache=pin_memory,
-                        drop_last=True,
-                        pipelines={
-                            "image": image_pipeline,
-                            "document_angle": label_pipeline
-                        },
-                        distributed=distributed)
-        
-        return loader
+        loader = Loader(
+            Path(eval_dataset_path),
+            batch_size=batch_size,
+            num_workers=num_workers,
+            order=order,
+            os_cache=pin_memory,
+            drop_last=True,
+            pipelines={"image": image_pipeline, "document_angle": label_pipeline},
+            distributed=distributed,
+        )
 
+        return loader
 
 
 def mse_loss(y_pred, y_true, scale=1):
@@ -452,10 +443,7 @@ def main():
         config["model"], optimizer_config, scheduler_config, data_config, train_config
     )
 
-
-    trainer = Trainer(
-        train_config, model, criterion, optimizer, scheduler, runID
-    )
+    trainer = Trainer(train_config, model, criterion, optimizer, scheduler, runID)
 
     if args.dryrun:
         trainer.profile()
@@ -465,8 +453,6 @@ def main():
         trainer.fit()
 
     destroy_process_group()
-
-
 
 
 if __name__ == "__main__":
