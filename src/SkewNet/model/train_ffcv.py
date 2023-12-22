@@ -131,7 +131,7 @@ class Trainer:
             run_config["criterion"] = self.criterion.__name__
             run_config["optimizer"] = self.optimizer.__class__.__name__
             run_config["num_train_samples"] = len(self.train_dataset)
-            run_config["num_val_samples"] = len(self.val_loader.dataset) if self.val_loader else 0
+            run_config["num_val_samples"] = len(self.val_loader) if self.val_loader else 0
             self.run = wandb.init(
                 project="SkewNet", entity="ethanhaque", config=run_config, dir=self.config.logdir, group=group
             )
