@@ -314,9 +314,9 @@ class Trainer:
     def setup_ffcv_train_loader(self, train_dataset_path, num_workers, batch_size, distributed=True, pin_memory=True):
         image_pipeline = [
             SimpleRGBImageDecoder(),
-            ToTensor(convert_back_int16=True),
+            ToTensor(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
-            ToTorchImage(),
+            ToTorchImage(convert_back_int16=True),
         ]
 
         label_pipeline = [
