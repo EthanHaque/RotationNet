@@ -25,7 +25,7 @@ from SkewNet.model.rotation_net import ModelRegistry
 
 from ffcv.fields.rgb_image import SimpleRGBImageDecoder
 from ffcv.fields.basics import FloatDecoder
-from ffcv.transforms import ToTensor, ToTorchImage, Squeeze, ToDevice
+from ffcv.transforms import ToTensor, ToTorchImage, Squeeze, ToDevice, Convert
 from ffcv.loader import Loader, OrderOption
 
 
@@ -317,7 +317,8 @@ class Trainer:
             SimpleRGBImageDecoder(),
             ToTensor(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
-            ToTorchImage(convert_back_int16=False),
+            ToTorchImage(),
+            Convert(torch.float16)
         ]
 
         label_pipeline = [
@@ -345,8 +346,9 @@ class Trainer:
         image_pipeline = [
             SimpleRGBImageDecoder(),
             ToTensor(),
-            ToTorchImage(convert_back_int16=False),
+            ToTorchImage(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
+            Convert(torch.float16)
         ]
 
         label_pipeline = [
