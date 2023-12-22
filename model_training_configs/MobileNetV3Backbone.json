@@ -29,7 +29,7 @@
         "snapshot_path": "",
         "snapshot_prefix": "",
         "start_epoch": 0,
-        "use_automatic_mixed_precision": false,
+        "use_automatic_mixed_precision": true,
         "profile": true
     }
 }
