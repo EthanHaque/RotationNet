@@ -314,7 +314,7 @@ class Trainer:
             ToTensor(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
             ToTorchImage(),
-            Convert(torch.float16)
+            Convert(torch.float32)
         ]
 
         label_pipeline = [
@@ -344,7 +344,7 @@ class Trainer:
             ToTensor(),
             ToTorchImage(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
-            Convert(torch.float16)
+            Convert(torch.float32)
         ]
 
         label_pipeline = [
