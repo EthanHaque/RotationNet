@@ -189,7 +189,7 @@ def process_image(image_path, background_path, output_images_dir, index, use_bac
     return annotation
 
 
-def split_data(df, train_size=0.7, test_size=0.3, val_size=1 / 3):
+def split_data(df, train_size=0.7, test_size=0.3, val_size=2 / 3):
     groups = df["document_image_path"].astype("category").cat.codes
     gss = GroupShuffleSplit(n_splits=1, train_size=train_size, test_size=test_size)
     train_idx, test_val_idx = next(gss.split(df, groups=groups))
