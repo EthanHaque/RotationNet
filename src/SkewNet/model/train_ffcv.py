@@ -130,7 +130,6 @@ class Trainer:
             run_config["model"] = self.model.__class__.__name__
             run_config["criterion"] = self.criterion.__name__
             run_config["optimizer"] = self.optimizer.__class__.__name__
-            run_config["min_angle"], run_config["max_angle"] = self.train_dataset.get_angle_interval()
             run_config["num_train_samples"] = len(self.train_dataset)
             run_config["num_val_samples"] = len(self.val_loader.dataset) if self.val_loader else 0
             self.run = wandb.init(
