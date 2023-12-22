@@ -3,6 +3,7 @@ import torch
 import torchvision.transforms as transforms
 from SkewNet.model.rotation_net import ModelRegistry
 from SkewNet.model.train import SnapshotConfig
+from PIL import Image
 import math
 
 
@@ -58,7 +59,8 @@ def create_image_batch(images, device="cuda"):
 
 def main(snapshot_path, image_path):
     model = load_model(snapshot_path)
-    prediction = predict_image(model, image_path)
+    image = Image.open(image_path)
+    prediction = predict_image(model, image)
     print(f"Prediction: {prediction}")
 
 
