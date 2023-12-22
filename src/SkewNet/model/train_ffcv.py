@@ -187,7 +187,7 @@ class Trainer:
             device_type="cuda", dtype=torch.float16, enabled=self.config.use_automatic_mixed_precision
         ):
             x, y = batch
-            print(x, y))
+            print(x, y)
             y_hat = self.model(x)
             loss, mae = self._calculate_metrics(y_hat, y)
             self.optimizer.zero_grad(set_to_none=True)
