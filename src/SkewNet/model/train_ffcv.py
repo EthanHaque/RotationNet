@@ -247,7 +247,6 @@ class Trainer:
             return loss, mae
 
     def _validate(self, epoch, data_loader):
-        data_loader.sampler.set_epoch(epoch)
         self.model.eval()
         running_metrics = torch.zeros(3, device=self.local_rank)
         for idx, batch in enumerate(data_loader):
@@ -302,7 +301,6 @@ class Trainer:
             activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], profile_memory=True, record_shapes=True
         ) as prof:
             with record_function("model_inference"):
-                self.train_loader.sampler.set_epoch(0)
                 for idx, batch in enumerate(self.train_loader):
                     self.model.train()
                     self._training_step(batch, idx)
