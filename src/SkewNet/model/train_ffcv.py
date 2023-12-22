@@ -317,7 +317,7 @@ class Trainer:
             SimpleRGBImageDecoder(),
             ToTensor(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
-            ToTorchImage(convert_back_int16=True),
+            ToTorchImage(convert_back_int16=False),
         ]
 
         label_pipeline = [
@@ -345,7 +345,7 @@ class Trainer:
         image_pipeline = [
             SimpleRGBImageDecoder(),
             ToTensor(),
-            ToTorchImage(convert_back_int16=True),
+            ToTorchImage(convert_back_int16=False),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
         ]
 
