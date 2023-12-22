@@ -52,6 +52,7 @@ class ModelRegistry:
 
 ################## MobileNetV3-based models ##################
 
+convolution_ratio = 3
 
 ## based on https://github.com/d-li14/mobilenetv3.pytorch/blob/master/mobilenetv3.py
 def _make_divisible(v, divisor, min_value=None):
@@ -110,12 +111,12 @@ class SELayer(nn.Module):
         return x * y
 
 
-def conv_3x6_bn(inp, oup, stride):
-    return nn.Sequential(nn.Conv2d(inp, oup, (3, 9), (stride, stride), (1,4), bias=False), nn.BatchNorm2d(oup), h_swish())
+def conv_3x_bn(inp, oup, stride):
+    return nn.Sequential(nn.Conv2d(inp, oup, (3, 3 * convolution_ratio), (stride, stride), (1, (3 * convolution_ratio - 1)//2), bias=False), nn.BatchNorm2d(oup), h_swish())
 
 
-def conv_1x2_bn(inp, oup):
-    return nn.Sequential(nn.Conv2d(inp, oup, (1, 2), (1, 1), 0, bias=False), nn.BatchNorm2d(oup), h_swish())
+def conv_1x1_bn(inp, oup):
+    return nn.Sequential(nn.Conv2d(inp, oup, 1, 1, 0, bias=False), nn.BatchNorm2d(oup), h_swish())
 
 
 class InvertedResidual(nn.Module):
@@ -126,7 +127,7 @@ class InvertedResidual(nn.Module):
         self.identity = stride == 1 and inp == oup
 
         if inp == hidden_dim:
-            conv1 = nn.Conv2d(hidden_dim, hidden_dim, (kernel_size, kernel_size * 3), (stride, stride), ((kernel_size - 1) //2, (kernel_size *  3 * 2 - 1) // 2), groups=hidden_dim, bias=False)
+            conv1 = nn.Conv2d(hidden_dim, hidden_dim, (kernel_size, kernel_size * convolution_ratio), (stride, stride), ((kernel_size - 1) //2, (kernel_size *  convolution_ratio - 1) // 2), groups=hidden_dim, bias=False)
             batch_norm1 = nn.BatchNorm2d(hidden_dim)
             activation = h_swish() if use_hs else nn.ReLU(inplace=True)
             se = SELayer(hidden_dim) if use_se else nn.Identity()
@@ -139,7 +140,7 @@ class InvertedResidual(nn.Module):
             conv1 = nn.Conv2d(inp, hidden_dim, 1, 1, 0, bias=False)
             batch_norm1 = nn.BatchNorm2d(hidden_dim)
             activation1 = h_swish() if use_hs else nn.ReLU(inplace=True)
-            conv2 = nn.Conv2d(hidden_dim, hidden_dim, (kernel_size, kernel_size * 2), (stride, stride), ((kernel_size // 2) - 1, kernel_size - 1), groups=hidden_dim, bias=False)
+            conv2 = nn.Conv2d(hidden_dim, hidden_dim, (kernel_size, kernel_size * convolution_ratio), (stride, stride), ((kernel_size - 1) //2, (kernel_size *  convolution_ratio - 1) // 2), groups=hidden_dim, bias=False)
             batch_norm2 = nn.BatchNorm2d(hidden_dim)
             se = SELayer(hidden_dim) if use_se else nn.Identity()
             activation2 = h_swish() if use_hs else nn.ReLU(inplace=True)
@@ -150,14 +151,7 @@ class InvertedResidual(nn.Module):
 
     def forward(self, x):
         if self.identity:
-            # return x + self.conv(x)
-            output = x
-            for layer in self.conv:
-                print(f"layer: {layer} with input shape: {output.shape}")
-                output = layer(output)
-            print(f"output shape: {output.shape}")
-            print(f"x shape: {x.shape}")
-            return x + output
+            return x + self.conv(x)
         else:
             return self.conv(x)
 
@@ -188,7 +182,7 @@ class MobileNetV3(nn.Module):
 
         # building first layer
         input_channel = _make_divisible(16 * width_mult, 8)
-        layers = [conv_3x6_bn(3, input_channel, 2)]
+        layers = [conv_3x_bn(3, input_channel, 2)]
         # building inverted residual blocks
         block = InvertedResidual
         for k, t, c, use_se, use_hs, s in self.cfgs:
@@ -198,7 +192,7 @@ class MobileNetV3(nn.Module):
             input_channel = output_channel
         self.features = nn.Sequential(*layers)
         # building last several layers
-        self.conv = conv_1x2_bn(input_channel, exp_size)
+        self.conv = conv_1x1_bn(input_channel, exp_size)
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.flatten = nn.Flatten()
         self.regression = nn.Sequential(nn.Linear(exp_size, 1))
