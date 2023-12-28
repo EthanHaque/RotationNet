@@ -5,7 +5,7 @@ import numpy as np
 
 def setup_data_loaders():
     data_config = DataConfig(
-        annotations_file= "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles.csv",
+        annotations_file= "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_angles_tiny_100.csv",
         img_dir= "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data/",
         truncate= 1.0,
         min_angle=-2 * np.pi,
@@ -17,10 +17,7 @@ def setup_data_loaders():
 
     return train_dataset, val_dataset, test_dataset
 
-def main():
-    train_dataset, val_dataset, test_dataset = setup_data_loaders()
-    write_path = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/test"
-
+def write_dataset(dataset, write_path):
     # Pass a type for each data field
     writer = DatasetWriter(write_path, {
         "image": RGBImageField(jpeg_quality=95),
@@ -28,7 +25,18 @@ def main():
     })
 
     # Write dataset
-    writer.from_indexed_dataset(test_dataset)
+    writer.from_indexed_dataset(dataset)
+
+def main():
+    datasets = setup_data_loaders()
+    write_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/"
+    subsets = ["train", "val", "test"]
+
+    for dataset, subset in zip(datasets, subsets):
+        write_path = write_dir + subset
+        write_dataset(dataset, write_path)
+
+
 
 
 if __name__ == "__main__":
