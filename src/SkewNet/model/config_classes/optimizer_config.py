@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 @dataclass
 class OptimizerConfig:
     learning_rate: float
