@@ -2,6 +2,7 @@ from ffcv.writer import DatasetWriter
 from ffcv.fields import RGBImageField, FloatField
 from SkewNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
 import numpy as np
+from torchvision.transforms import ToPILImage
 
 def setup_data_loaders():
     data_config = DataConfig(
@@ -11,9 +12,12 @@ def setup_data_loaders():
         min_angle=-2 * np.pi,
         max_angle=2 * np.pi
     )
-    train_dataset = RotatedImageDataset(data_config, subset="train")
-    val_dataset = RotatedImageDataset(data_config, subset="val")
-    test_dataset = RotatedImageDataset(data_config, subset="test")
+
+    image_transform = ToPILImage()
+
+    train_dataset = RotatedImageDataset(data_config, subset="train", transform=image_transform)
+    val_dataset = RotatedImageDataset(data_config, subset="val", transform=image_transform)
+    test_dataset = RotatedImageDataset(data_config, subset="test", transform=image_transform)
 
     return train_dataset, val_dataset, test_dataset
 
