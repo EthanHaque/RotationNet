@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-from dataclasses import dataclass
 
 import numpy as np
 
@@ -12,13 +11,13 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.nn.utils import clip_grad_norm_
 from torchvision.utils import make_grid
 from torchvision.transforms.functional import rotate
-from torch.utils.data import DataLoader
-from torch.utils.data.distributed import DistributedSampler
 from torch.profiler import profile, record_function, ProfilerActivity
-from torchvision import transforms
 
 from pathlib import Path
 
+from SkewNet.model.config_classes.optimizer_config import OptimizerConfig
+from SkewNet.model.config_classes.scheduler_config import SchedulerConfig
+from SkewNet.model.config_classes.snapshot_config import SnapshotConfig
 from SkewNet.model.rotated_images_dataset import DataConfig
 from SkewNet.model.rotation_net import ModelRegistry
 
@@ -28,47 +27,7 @@ from ffcv.fields.basics import FloatDecoder
 from ffcv.transforms import ToTensor, ToTorchImage, Squeeze, ToDevice, Convert
 from ffcv.loader import Loader, OrderOption
 
-
-@dataclass
-class TrainConfig:
-    evaluate: bool = True
-    test: bool = False
-    start_epoch: int = 0
-    max_epochs: int = 20
-    batch_size: int = 64
-    data_loader_prefetch_factor: int = 4
-    data_loader_num_workers: int = 8
-    snapshot_dir: str = ""
-    snapshot_prefix: str = ""
-    snapshot_path: str = ""
-    resume: bool = False
-    snapshot_interval: int = 1
-    use_automatic_mixed_precision: bool = False
-    grad_norm_clip: float = 1.0
-    profile: bool = False
-    logdir: str = "/scratch/gpfs/eh0560/SkewNet/logs"
-
-
-@dataclass
-class SnapshotConfig:
-    model_state: dict
-    optimizer_state: dict
-    scheduler_state: dict
-    epoch: int
-    best_loss: float
-    best_epoch: int
-
-
-@dataclass
-class OptimizerConfig:
-    learning_rate: float
-    weight_decay: float
-
-
-@dataclass
-class SchedulerConfig:
-    T_max: int
-    eta_min: float
+from SkewNet.model.config_classes.train_config import TrainConfig
 
 
 class Trainer:
