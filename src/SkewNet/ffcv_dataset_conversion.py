@@ -29,7 +29,7 @@ def write_dataset(dataset, write_path):
 
 def main():
     datasets = setup_data_loaders()
-    write_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/"
+    write_dir = "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv_unit_test_datasets/"
     subsets = ["train", "val", "test"]
 
     for dataset, subset in zip(datasets, subsets):
