@@ -416,6 +416,9 @@ def main():
         config = json.load(f)
 
     runID = args.runID
+    seed = 42 + int(os.environ["RANK"])
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     train_config, optimizer_config, scheduler_config, data_config = setup_config(config)
 
