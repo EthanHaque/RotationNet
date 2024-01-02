@@ -52,13 +52,19 @@ class Trainer:
         self.scheduler = scheduler
 
         self.train_loader = self.setup_ffcv_train_loader(
-            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/train", num_workers, batch_size
+            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv_unit_test_datasets/train",
+            num_workers,
+            batch_size,
         )
         self.val_loader = self.setup_ffcv_eval_loader(
-            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/val", num_workers, batch_size
+            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv_unit_test_datasets/val",
+            num_workers,
+            batch_size,
         )
         self.test_loader = self.setup_ffcv_eval_loader(
-            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv/test", num_workers, batch_size
+            "/scratch/gpfs/eh0560/datasets/deskewing/synthetic_data_ffcv_unit_test_datasets/test",
+            num_workers,
+            batch_size,
         )
 
         self.train_dataset = self.train_loader
@@ -273,7 +279,7 @@ class Trainer:
             ToTensor(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
             ToTorchImage(),
-            Convert(torch.float32)
+            Convert(torch.float32),
         ]
 
         label_pipeline = [
@@ -303,7 +309,7 @@ class Trainer:
             ToTensor(),
             ToTorchImage(),
             ToDevice(torch.device(f"cuda:{torch.cuda.current_device()}"), non_blocking=True),
-            Convert(torch.float32)
+            Convert(torch.float32),
         ]
 
         label_pipeline = [
