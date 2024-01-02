@@ -229,7 +229,7 @@ class Trainer:
         for epoch in range(self.epochs_run, self.config.max_epochs):
             train_loss, train_mae = self._train(epoch, self.train_loader)
             val_loss = None
-            if self.val_loader:
+            if self.val_loader and self.config.evaluate:
                 val_loss, val_mae = self._validate(epoch, self.val_loader)
                 # TODO: add early stopping
                 if val_loss < self.best_loss:
