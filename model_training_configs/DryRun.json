@@ -19,7 +19,7 @@
         "batch_size": 2,
         "data_loader_num_workers": 2,
         "data_loader_prefetch_factor": 2,
-        "evaluate": true,
+        "evaluate": false,
         "test": false,
         "grad_norm_clip": 1.0,
         "max_epochs": 10,
