@@ -16,7 +16,7 @@
         "eta_min": 0.00001
     },
     "train_config": {
-        "batch_size": 2,
+        "batch_size": 24,
         "data_loader_num_workers": 2,
         "data_loader_prefetch_factor": 2,
         "evaluate": true,
