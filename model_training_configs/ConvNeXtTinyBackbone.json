@@ -23,7 +23,7 @@
         "test": false,
         "grad_norm_clip": 1.0,
         "max_epochs": 20,
-        "snapshot_dir": "/scratch/gpfs/eh0560/SkewNet/snapshots",
+        "snapshot_dir": "/scratch/gpfs/eh0560/RotationNet/snapshots",
         "snapshot_interval": 15,
         "resume": false,
         "snapshot_path": "",

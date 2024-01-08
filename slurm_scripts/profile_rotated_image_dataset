@@ -14,4 +14,4 @@ module purge
 module load anaconda3/2023.3
 conda activate torch_env
 
-python /scratch/gpfs/eh0560/SkewNet/test/SkewNet/model/profile_rotated_image_dataset.py
+python /scratch/gpfs/eh0560/RotationNet/test/RotationNet/model/profile_rotated_image_dataset.py

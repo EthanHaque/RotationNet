@@ -17,13 +17,13 @@ from torch.utils.data.distributed import DistributedSampler
 from torch.profiler import profile, record_function, ProfilerActivity
 from torchvision import transforms
 
-from SkewNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
-from SkewNet.model.rotation_net import ModelRegistry
+from RotationNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
+from RotationNet.model.rotation_net import ModelRegistry
 
-from SkewNet.model.config_classes.scheduler_config import SchedulerConfig
-from SkewNet.model.config_classes.optimizer_config import OptimizerConfig
-from SkewNet.model.config_classes.train_config import TrainConfig
-from SkewNet.model.config_classes.snapshot_config import SnapshotConfig
+from RotationNet.model.config_classes.scheduler_config import SchedulerConfig
+from RotationNet.model.config_classes.optimizer_config import OptimizerConfig
+from RotationNet.model.config_classes.train_config import TrainConfig
+from RotationNet.model.config_classes.snapshot_config import SnapshotConfig
 
 
 class Trainer:
@@ -93,7 +93,7 @@ class Trainer:
             run_config["num_train_samples"] = len(self.train_dataset)
             run_config["num_val_samples"] = len(self.val_loader.dataset) if self.val_loader else 0
             self.run = wandb.init(
-                project="SkewNet", entity="ethanhaque", config=run_config, dir=self.config.logdir, group=group
+                project="RotationNet", entity="ethanhaque", config=run_config, dir=self.config.logdir, group=group
             )
             # self.run.enable_profiling()
             self.run.watch(self.model)
@@ -366,7 +366,7 @@ def setup_data_loaders(
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="PyTorch SkewNet Training")
+    parser = argparse.ArgumentParser(description="PyTorch RotationNet Training")
     parser.add_argument("runID", metavar="RUNID", help="wandb uuid")
     parser.add_argument("config", metavar="FILE", help="path to config file")
     parser.add_argument("--dryrun", action="store_true", help="profile training")

@@ -25,6 +25,6 @@ uid=$(date +%s)
 torchrun \
 --nnodes 1 \
 --nproc_per_node 4 \
-/scratch/gpfs/eh0560/SkewNet/src/SkewNet/model/train_ffcv.py \
+/scratch/gpfs/eh0560/RotationNet/src/RotationNet/model/train_ffcv.py \
 $uid \
-/scratch/gpfs/eh0560/SkewNet/model_training_configs/MobileNetV3Backbone.json
+/scratch/gpfs/eh0560/RotationNet/model_training_configs/MobileNetV3Backbone.json

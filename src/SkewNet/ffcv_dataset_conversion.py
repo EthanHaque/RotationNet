@@ -1,6 +1,6 @@
 from ffcv.writer import DatasetWriter
 from ffcv.fields import RGBImageField, FloatField
-from SkewNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
+from RotationNet.model.rotated_images_dataset import DataConfig, RotatedImageDataset
 import numpy as np
 from torchvision.transforms import ToPILImage
 

@@ -18,4 +18,4 @@ class TrainConfig:
     use_automatic_mixed_precision: bool = False
     grad_norm_clip: float = 1.0
     profile: bool = False
-    logdir: str = "/scratch/gpfs/eh0560/SkewNet/logs"
+    logdir: str = "/scratch/gpfs/eh0560/RotationNet/logs"

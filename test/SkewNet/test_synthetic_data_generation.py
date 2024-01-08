@@ -3,7 +3,7 @@ import random
 import unittest
 
 import numpy as np
-from SkewNet.synthetic_data_generation import compose_document_onto_background
+from RotationNet.synthetic_data_generation import compose_document_onto_background
 
 
 def low_value_mock(low, high, *args, **kwargs):

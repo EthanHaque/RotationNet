@@ -1,6 +1,6 @@
 import time
 
-from SkewNet.model.rotated_images_dataset import RotatedImageDataset
+from RotationNet.model.rotated_images_dataset import RotatedImageDataset
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 

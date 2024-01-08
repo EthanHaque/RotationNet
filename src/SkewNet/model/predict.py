@@ -1,8 +1,8 @@
 import argparse
 import torch
 import torchvision.transforms as transforms
-from SkewNet.model.rotation_net import ModelRegistry
-from SkewNet.model.train import SnapshotConfig
+from RotationNet.model.rotation_net import ModelRegistry
+from RotationNet.model.train import SnapshotConfig
 from PIL import Image
 import math
 
