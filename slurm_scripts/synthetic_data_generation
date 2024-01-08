@@ -14,4 +14,4 @@ module purge
 module load anaconda3/2023.9
 conda activate torch_env
 
-python /scratch/gpfs/eh0560/SkewNet/src/SkewNet/synthetic_data_generation.py
+python /scratch/gpfs/eh0560/RotationNet/src/RotationNet/synthetic_data_generation.py

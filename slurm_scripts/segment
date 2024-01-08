@@ -15,4 +15,4 @@ module purge
 module load anaconda3/2023.3
 conda activate torch_env
 
-python /scratch/gpfs/eh0560/SkewNet/src/SkewNet/create_segmentation_masks.py
+python /scratch/gpfs/eh0560/RotationNet/src/RotationNet/create_segmentation_masks.py

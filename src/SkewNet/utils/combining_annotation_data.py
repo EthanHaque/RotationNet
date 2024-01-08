@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from SkewNet.utils.image_utils import rotate_image
+from RotationNet.utils.image_utils import rotate_image
 
 
 # %%
